@@ -1,52 +1,53 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface Transaction {
   id: string;
-  userId: string;
-  userName: string;
+  user_id: string;
+  user_name: string;
   amount: number;
-  upiId: string;
-  accountName: string;
+  upi_id: string;
+  account_name: string;
   status: 'pending' | 'approved' | 'rejected';
   type: 'withdrawal' | 'credit';
-  createdAt: string;
-}
-
-function getAll(): Transaction[] {
-  const stored = localStorage.getItem('transactions');
-  return stored ? JSON.parse(stored) : [];
-}
-
-function save(txns: Transaction[]) {
-  localStorage.setItem('transactions', JSON.stringify(txns));
+  created_at: string;
 }
 
 export function useTransactions() {
-  const [transactions, setTransactions] = useState<Transaction[]>(getAll);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const { user, isAdmin } = useAuth();
 
-  const addTransaction = (txn: Omit<Transaction, 'id' | 'createdAt'>) => {
-    const all = getAll();
-    const newTxn: Transaction = {
-      ...txn,
-      id: Math.random().toString(36).substring(2, 12),
-      createdAt: new Date().toISOString(),
-    };
-    all.push(newTxn);
-    save(all);
-    setTransactions(all);
+  const fetchTransactions = async () => {
+    const { data } = await supabase
+      .from('transactions')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (data) setTransactions(data as unknown as Transaction[]);
   };
 
-  const updateStatus = (id: string, status: Transaction['status']) => {
-    const all = getAll();
-    const txn = all.find(t => t.id === id);
-    if (txn) {
-      txn.status = status;
-      save(all);
-      setTransactions([...all]);
-    }
+  useEffect(() => {
+    if (user) fetchTransactions();
+
+    const channel = supabase
+      .channel('txn-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, () => {
+        fetchTransactions();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user]);
+
+  const addTransaction = async (txn: Omit<Transaction, 'id' | 'created_at'>) => {
+    await supabase.from('transactions').insert(txn as any);
+    await fetchTransactions();
   };
 
-  const refresh = () => setTransactions(getAll());
+  const updateStatus = async (id: string, status: Transaction['status']) => {
+    await supabase.from('transactions').update({ status } as any).eq('id', id);
+    await fetchTransactions();
+  };
 
-  return { transactions, addTransaction, updateStatus, refresh };
+  return { transactions, addTransaction, updateStatus, refresh: fetchTransactions };
 }

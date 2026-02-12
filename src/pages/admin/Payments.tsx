@@ -16,8 +16,8 @@ export default function AdminPayments() {
       <CardContent className="p-4 space-y-3">
         <div className="flex justify-between items-start">
           <div>
-            <p className="font-medium">{txn.userName}</p>
-            <p className="text-sm text-muted-foreground">{txn.upiId} · {txn.accountName}</p>
+            <p className="font-medium">{txn.user_name}</p>
+            <p className="text-sm text-muted-foreground">{txn.upi_id} · {txn.account_name}</p>
             <p className="text-sm font-semibold">{txn.amount} coins</p>
           </div>
           <Badge variant={txn.status === 'approved' ? 'default' : txn.status === 'rejected' ? 'destructive' : 'secondary'}>{txn.status}</Badge>
