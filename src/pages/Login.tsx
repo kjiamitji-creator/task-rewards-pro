@@ -11,16 +11,22 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
   const { settings } = useSettings();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    const result = login(email, password);
+    setLoading(true);
+    const result = await login(email, password);
+    setLoading(false);
     if (result.success) {
-      navigate(result.isAdmin ? '/admin' : '/home');
+      // Check admin after login - need a small delay for state to update
+      setTimeout(() => {
+        navigate(result.isAdmin ? '/admin' : '/home');
+      }, 100);
     } else {
       setError(result.error || 'Login failed');
     }
@@ -33,7 +39,7 @@ export default function Login() {
           <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mx-auto">
             <Coins size={28} className="text-primary-foreground" />
           </div>
-          <CardTitle className="text-2xl font-bold">{settings.websiteName}</CardTitle>
+          <CardTitle className="text-2xl font-bold">{settings.website_name}</CardTitle>
           <CardDescription>Sign in to start earning</CardDescription>
         </CardHeader>
         <CardContent>
@@ -57,8 +63,8 @@ export default function Login() {
               onChange={e => setPassword(e.target.value)}
               required
             />
-            <Button type="submit" className="w-full gap-2">
-              <LogIn size={18} /> Sign In
+            <Button type="submit" className="w-full gap-2" disabled={loading}>
+              <LogIn size={18} /> {loading ? 'Signing in...' : 'Sign In'}
             </Button>
           </form>
           <p className="text-center text-sm text-muted-foreground mt-6">

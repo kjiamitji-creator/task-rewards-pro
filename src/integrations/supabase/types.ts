@@ -14,16 +14,162 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      app_settings: {
+        Row: {
+          admin_email: string
+          coin_value: number
+          coins_per_minute: number
+          currency: string
+          id: string
+          min_withdrawal: number
+          updated_at: string
+          website_name: string
+        }
+        Insert: {
+          admin_email?: string
+          coin_value?: number
+          coins_per_minute?: number
+          currency?: string
+          id?: string
+          min_withdrawal?: number
+          updated_at?: string
+          website_name?: string
+        }
+        Update: {
+          admin_email?: string
+          coin_value?: number
+          coins_per_minute?: number
+          currency?: string
+          id?: string
+          min_withdrawal?: number
+          updated_at?: string
+          website_name?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          coins: number
+          completed_tasks: number
+          country: string | null
+          created_at: string
+          currency: string | null
+          email: string
+          id: string
+          name: string
+          referral_code: string | null
+          referred_by: string | null
+          state: string | null
+          total_withdrawn: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          coins?: number
+          completed_tasks?: number
+          country?: string | null
+          created_at?: string
+          currency?: string | null
+          email?: string
+          id?: string
+          name?: string
+          referral_code?: string | null
+          referred_by?: string | null
+          state?: string | null
+          total_withdrawn?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          coins?: number
+          completed_tasks?: number
+          country?: string | null
+          created_at?: string
+          currency?: string | null
+          email?: string
+          id?: string
+          name?: string
+          referral_code?: string | null
+          referred_by?: string | null
+          state?: string | null
+          total_withdrawn?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      transactions: {
+        Row: {
+          account_name: string | null
+          amount: number
+          created_at: string
+          id: string
+          status: string
+          type: string
+          upi_id: string | null
+          user_id: string
+          user_name: string
+        }
+        Insert: {
+          account_name?: string | null
+          amount: number
+          created_at?: string
+          id?: string
+          status?: string
+          type?: string
+          upi_id?: string | null
+          user_id: string
+          user_name?: string
+        }
+        Update: {
+          account_name?: string | null
+          amount?: number
+          created_at?: string
+          id?: string
+          status?: string
+          type?: string
+          upi_id?: string | null
+          user_id?: string
+          user_name?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +296,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+    },
   },
 } as const

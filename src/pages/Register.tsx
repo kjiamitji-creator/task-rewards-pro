@@ -16,11 +16,12 @@ export default function Register() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [referralCode, setReferralCode] = useState(searchParams.get('ref') || '');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
   const { settings } = useSettings();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     if (password !== confirmPassword) {
@@ -31,9 +32,11 @@ export default function Register() {
       setError('Password must be at least 6 characters');
       return;
     }
-    const result = register(name, email, password, referralCode || undefined);
+    setLoading(true);
+    const result = await register(name, email, password, referralCode || undefined);
+    setLoading(false);
     if (result.success) {
-      toast.success('Account created! Please login.');
+      toast.success('Account created! You can now login.');
       navigate('/login');
     } else {
       setError(result.error || 'Registration failed');
@@ -47,7 +50,7 @@ export default function Register() {
           <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mx-auto">
             <Coins size={28} className="text-primary-foreground" />
           </div>
-          <CardTitle className="text-2xl font-bold">{settings.websiteName}</CardTitle>
+          <CardTitle className="text-2xl font-bold">{settings.website_name}</CardTitle>
           <CardDescription>Create your account</CardDescription>
         </CardHeader>
         <CardContent>
@@ -57,40 +60,13 @@ export default function Register() {
                 {error}
               </div>
             )}
-            <Input
-              placeholder="Full Name"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              required
-            />
-            <Input
-              type="email"
-              placeholder="Email address"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-            />
-            <Input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-            />
-            <Input
-              type="password"
-              placeholder="Confirm Password"
-              value={confirmPassword}
-              onChange={e => setConfirmPassword(e.target.value)}
-              required
-            />
-            <Input
-              placeholder="Referral Code (optional)"
-              value={referralCode}
-              onChange={e => setReferralCode(e.target.value)}
-            />
-            <Button type="submit" className="w-full gap-2">
-              <UserPlus size={18} /> Create Account
+            <Input placeholder="Full Name" value={name} onChange={e => setName(e.target.value)} required />
+            <Input type="email" placeholder="Email address" value={email} onChange={e => setEmail(e.target.value)} required />
+            <Input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required />
+            <Input type="password" placeholder="Confirm Password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required />
+            <Input placeholder="Referral Code (optional)" value={referralCode} onChange={e => setReferralCode(e.target.value)} />
+            <Button type="submit" className="w-full gap-2" disabled={loading}>
+              <UserPlus size={18} /> {loading ? 'Creating...' : 'Create Account'}
             </Button>
           </form>
           <p className="text-center text-sm text-muted-foreground mt-6">

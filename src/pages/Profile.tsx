@@ -10,20 +10,18 @@ import { User as UserIcon, Copy, Share2, Edit, Trophy } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Profile() {
-  const { user, updateUser, getAllUsers, logout } = useAuth();
+  const { profile, updateProfile, logout } = useAuth();
   const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(user?.name || '');
-  const [state, setState] = useState(user?.state || '');
-  const [country, setCountry] = useState(user?.country || '');
+  const [name, setName] = useState(profile?.name || '');
+  const [state, setState] = useState(profile?.state || '');
+  const [country, setCountry] = useState(profile?.country || '');
 
-  if (!user) return null;
+  if (!profile) return null;
 
-  const referralLink = `${window.location.origin}/register?ref=${user.referralCode}`;
-  const allUsers = getAllUsers();
-  const referrals = allUsers.filter(u => u.referredBy === user.referralCode);
+  const referralLink = `${window.location.origin}/register?ref=${profile.referral_code}`;
 
-  const handleSave = () => {
-    updateUser({ name, state, country });
+  const handleSave = async () => {
+    await updateProfile({ name, state, country });
     setEditing(false);
     toast.success('Profile updated!');
   };
@@ -44,27 +42,27 @@ export default function Profile() {
                 <UserIcon size={28} className="text-primary" />
               </div>
               <div className="min-w-0">
-                <h2 className="text-xl font-bold truncate">{user.name}</h2>
-                <p className="text-sm text-muted-foreground truncate">{user.email}</p>
+                <h2 className="text-xl font-bold truncate">{profile.name}</h2>
+                <p className="text-sm text-muted-foreground truncate">{profile.email}</p>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div className="bg-muted rounded-lg p-3">
                 <p className="text-muted-foreground text-xs">State</p>
-                <p className="font-medium">{user.state || '—'}</p>
+                <p className="font-medium">{profile.state || '—'}</p>
               </div>
               <div className="bg-muted rounded-lg p-3">
                 <p className="text-muted-foreground text-xs">Country</p>
-                <p className="font-medium">{user.country || '—'}</p>
+                <p className="font-medium">{profile.country || '—'}</p>
               </div>
               <div className="bg-muted rounded-lg p-3">
                 <p className="text-muted-foreground text-xs">Currency</p>
-                <p className="font-medium">{user.currency}</p>
+                <p className="font-medium">{profile.currency}</p>
               </div>
               <div className="bg-muted rounded-lg p-3">
                 <p className="text-muted-foreground text-xs">Tasks Done</p>
-                <p className="font-medium">{user.completedTasks}</p>
+                <p className="font-medium">{profile.completed_tasks}</p>
               </div>
             </div>
 
@@ -98,7 +96,7 @@ export default function Profile() {
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Your Referral Code</p>
                 <div className="flex items-center gap-2">
-                  <Input value={user.referralCode} readOnly className="font-mono text-lg font-bold" />
+                  <Input value={profile.referral_code} readOnly className="font-mono text-lg font-bold" />
                   <Button variant="outline" size="icon" onClick={copyReferral}>
                     <Copy size={16} />
                   </Button>
@@ -108,22 +106,10 @@ export default function Profile() {
               <div className="flex items-center gap-3 bg-primary/5 rounded-lg p-3">
                 <Trophy size={20} className="text-primary" />
                 <div>
-                  <p className="font-semibold">{referrals.length} Referrals</p>
+                  <p className="font-semibold">Referral Program</p>
                   <p className="text-xs text-muted-foreground">+10 coins per referral</p>
                 </div>
               </div>
-
-              {referrals.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground font-medium">Referred Users</p>
-                  {referrals.map(r => (
-                    <div key={r.id} className="flex items-center gap-2 text-sm bg-muted rounded-lg px-3 py-2">
-                      <UserIcon size={14} className="text-muted-foreground" />
-                      <span>{r.name}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>

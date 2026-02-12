@@ -13,37 +13,37 @@ import { Coins, ArrowDownToLine, History } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Wallet() {
-  const { user, deductCoins } = useAuth();
+  const { user, profile, deductCoins } = useAuth();
   const { settings } = useSettings();
   const { transactions, addTransaction } = useTransactions();
   const [upiId, setUpiId] = useState('');
   const [accountName, setAccountName] = useState('');
   const [open, setOpen] = useState(false);
 
-  if (!user) return null;
+  if (!profile || !user) return null;
 
-  const currencyAmount = (user.coins * settings.coinValue).toFixed(2);
-  const userTxns = transactions.filter(t => t.userId === user.id);
+  const currencyAmount = (profile.coins * settings.coin_value).toFixed(2);
+  const userTxns = transactions.filter(t => t.user_id === user.id);
 
-  const handleWithdraw = () => {
-    if (user.coins < settings.minWithdrawal) {
-      toast.error(`Minimum withdrawal: ${settings.minWithdrawal} coins`);
+  const handleWithdraw = async () => {
+    if (profile.coins < settings.min_withdrawal) {
+      toast.error(`Minimum withdrawal: ${settings.min_withdrawal} coins`);
       return;
     }
     if (!upiId.trim() || !accountName.trim()) {
       toast.error('Please fill all fields');
       return;
     }
-    addTransaction({
-      userId: user.id,
-      userName: user.name,
-      amount: user.coins,
-      upiId,
-      accountName,
+    await addTransaction({
+      user_id: user.id,
+      user_name: profile.name,
+      amount: profile.coins,
+      upi_id: upiId,
+      account_name: accountName,
       status: 'pending',
       type: 'withdrawal',
     });
-    deductCoins(user.coins);
+    await deductCoins(profile.coins);
     setOpen(false);
     setUpiId('');
     setAccountName('');
@@ -60,7 +60,7 @@ export default function Wallet() {
         <Card className="overflow-hidden">
           <div className="bg-gradient-to-br from-primary to-primary/70 p-6 text-primary-foreground text-center">
             <Coins size={36} className="mx-auto mb-2 opacity-90" />
-            <p className="text-4xl font-bold">{user.coins}</p>
+            <p className="text-4xl font-bold">{profile.coins}</p>
             <p className="text-sm opacity-80 mt-1">
               ≈ {settings.currency} {currencyAmount}
             </p>
@@ -77,22 +77,12 @@ export default function Wallet() {
                   <DialogTitle>Withdraw Coins</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
-                  <Input
-                    placeholder="UPI ID (e.g. name@upi)"
-                    value={upiId}
-                    onChange={e => setUpiId(e.target.value)}
-                  />
-                  <Input
-                    placeholder="Account Holder Name"
-                    value={accountName}
-                    onChange={e => setAccountName(e.target.value)}
-                  />
+                  <Input placeholder="UPI ID (e.g. name@upi)" value={upiId} onChange={e => setUpiId(e.target.value)} />
+                  <Input placeholder="Account Holder Name" value={accountName} onChange={e => setAccountName(e.target.value)} />
                   <p className="text-sm text-muted-foreground">
-                    Minimum: {settings.minWithdrawal} coins · Balance: {user.coins} coins
+                    Minimum: {settings.min_withdrawal} coins · Balance: {profile.coins} coins
                   </p>
-                  <Button onClick={handleWithdraw} className="w-full">
-                    Submit Request
-                  </Button>
+                  <Button onClick={handleWithdraw} className="w-full">Submit Request</Button>
                 </div>
               </DialogContent>
             </Dialog>
@@ -116,7 +106,7 @@ export default function Wallet() {
                     <div>
                       <p className="font-semibold">{t.amount} coins</p>
                       <p className="text-xs text-muted-foreground">
-                        {new Date(t.createdAt).toLocaleDateString()} · {t.upiId}
+                        {new Date(t.created_at).toLocaleDateString()} · {t.upi_id}
                       </p>
                     </div>
                     <Badge variant={statusVariant(t.status)}>{t.status}</Badge>
