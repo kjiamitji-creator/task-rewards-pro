@@ -17,6 +17,7 @@ export type Database = {
       app_settings: {
         Row: {
           admin_email: string
+          admin_password: string
           coin_value: number
           coins_per_minute: number
           currency: string
@@ -27,6 +28,7 @@ export type Database = {
         }
         Insert: {
           admin_email?: string
+          admin_password?: string
           coin_value?: number
           coins_per_minute?: number
           currency?: string
@@ -37,6 +39,7 @@ export type Database = {
         }
         Update: {
           admin_email?: string
+          admin_password?: string
           coin_value?: number
           coins_per_minute?: number
           currency?: string

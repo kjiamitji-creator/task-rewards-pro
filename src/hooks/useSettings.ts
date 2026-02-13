@@ -9,6 +9,7 @@ export interface AppSettings {
   min_withdrawal: number;
   currency: string;
   admin_email: string;
+  admin_password: string;
 }
 
 const DEFAULTS: AppSettings = {
@@ -18,6 +19,7 @@ const DEFAULTS: AppSettings = {
   min_withdrawal: 100,
   currency: 'INR',
   admin_email: '',
+  admin_password: 'kumar',
 };
 
 export function useSettings() {
