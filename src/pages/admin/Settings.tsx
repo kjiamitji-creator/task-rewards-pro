@@ -32,6 +32,7 @@ export default function AdminSettings() {
             <div className="space-y-1"><Label>Minimum Withdrawal (coins)</Label><Input type="number" value={form.min_withdrawal} onChange={e => setForm({ ...form, min_withdrawal: Number(e.target.value) })} /></div>
             <div className="space-y-1"><Label>Currency</Label><Input value={form.currency} onChange={e => setForm({ ...form, currency: e.target.value })} /></div>
             <div className="space-y-1"><Label>Admin Email</Label><Input value={form.admin_email} onChange={e => setForm({ ...form, admin_email: e.target.value })} /></div>
+            <div className="space-y-1"><Label>Admin Password</Label><Input type="password" value={form.admin_password} onChange={e => setForm({ ...form, admin_password: e.target.value })} /></div>
             <Button onClick={handleSave} className="w-full gap-2"><Save size={16} /> Save Settings</Button>
           </CardContent>
         </Card>

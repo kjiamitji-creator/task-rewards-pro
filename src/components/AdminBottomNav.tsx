@@ -1,7 +1,9 @@
-import { CreditCard, Users, Megaphone, Settings } from 'lucide-react';
+import { CreditCard, Users, Megaphone, Settings, LogOut, LayoutDashboard } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useAdminAuth } from '@/contexts/AdminAuthContext';
 
 const items = [
+  { path: '/admin', icon: LayoutDashboard, label: 'Dashboard' },
   { path: '/admin/payments', icon: CreditCard, label: 'Payments' },
   { path: '/admin/users', icon: Users, label: 'Users' },
   { path: '/admin/ads', icon: Megaphone, label: 'Ads' },
@@ -11,6 +13,7 @@ const items = [
 export default function AdminBottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { adminLogout } = useAdminAuth();
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border">
