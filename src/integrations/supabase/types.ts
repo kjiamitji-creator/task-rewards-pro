@@ -101,6 +101,33 @@ export type Database = {
         }
         Relationships: []
       }
+      social_ads: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          duration: number
+          id: string
+          page: string
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          duration?: number
+          id?: string
+          page?: string
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          duration?: number
+          id?: string
+          page?: string
+        }
+        Relationships: []
+      }
       transactions: {
         Row: {
           account_name: string | null
@@ -152,6 +179,33 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      video_ads: {
+        Row: {
+          active: boolean
+          created_at: string
+          duration: number
+          id: string
+          redirect_link: string | null
+          video_url: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          duration?: number
+          id?: string
+          redirect_link?: string | null
+          video_url: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          duration?: number
+          id?: string
+          redirect_link?: string | null
+          video_url?: string
         }
         Relationships: []
       }

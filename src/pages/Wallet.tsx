@@ -4,6 +4,8 @@ import BottomNav from '@/components/BottomNav';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/hooks/useSettings';
 import { useTransactions } from '@/hooks/useTransactions';
+import { useAds } from '@/hooks/useAds';
+import { SocialAdBanner } from '@/components/AdBanner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -16,6 +18,7 @@ export default function Wallet() {
   const { user, profile, deductCoins } = useAuth();
   const { settings } = useSettings();
   const { transactions, addTransaction } = useTransactions();
+  const { socialAds } = useAds();
   const [upiId, setUpiId] = useState('');
   const [accountName, setAccountName] = useState('');
   const [open, setOpen] = useState(false);
@@ -57,6 +60,7 @@ export default function Wallet() {
     <div className="min-h-screen bg-background pb-20">
       <Header />
       <main className="max-w-lg mx-auto px-4 py-6 space-y-6">
+        <SocialAdBanner ads={socialAds} page="wallet" />
         <Card className="overflow-hidden">
           <div className="bg-gradient-to-br from-primary to-primary/70 p-6 text-primary-foreground text-center">
             <Coins size={36} className="mx-auto mb-2 opacity-90" />

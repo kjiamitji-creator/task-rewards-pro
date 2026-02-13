@@ -8,6 +8,9 @@ import { Progress } from '@/components/ui/progress';
 import { Search, Play, Coins, Timer, Maximize2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/hooks/useSettings';
+import { useAds } from '@/hooks/useAds';
+import { SocialAdBanner } from '@/components/AdBanner';
+import { VideoAdOverlay } from '@/components/VideoAdOverlay';
 import { toast } from 'sonner';
 
 function extractVideoId(url: string): string | null {
@@ -25,8 +28,10 @@ export default function Home() {
   const [lastCreditedMinute, setLastCreditedMinute] = useState(0);
   const [isWatching, setIsWatching] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showVideoAd, setShowVideoAd] = useState(false);
   const { addCoins, profile } = useAuth();
   const { settings } = useSettings();
+  const { socialAds, videoAds } = useAds();
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
 
@@ -68,6 +73,10 @@ export default function Home() {
       setEarnedCoins(0);
       setLastCreditedMinute(0);
       setIsWatching(false);
+      // Show video ad before playing
+      if (videoAds.length > 0) {
+        setShowVideoAd(true);
+      }
     } else {
       toast.error('Please enter a valid YouTube URL');
     }
@@ -101,7 +110,12 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background pb-20">
       <Header />
+      {showVideoAd && (
+        <VideoAdOverlay ads={videoAds} onComplete={() => setShowVideoAd(false)} />
+      )}
       <main className="max-w-lg mx-auto px-4 py-6 space-y-5">
+        {/* Social Ads */}
+        <SocialAdBanner ads={socialAds} page="home" />
         {/* Search */}
         <Card className="border-primary/20 shadow-sm">
           <CardContent className="p-4">
