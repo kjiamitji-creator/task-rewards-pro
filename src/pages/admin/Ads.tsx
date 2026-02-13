@@ -5,15 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Trash2, Plus } from 'lucide-react';
+import { Trash2, Plus, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-
-interface SocialAd { id: string; code: string; page: string; duration: number; }
-interface VideoAd { id: string; videoUrl: string; redirectLink: string; duration: number; }
+import { useAds } from '@/hooks/useAds';
 
 export default function AdminAds() {
-  const [socialAds, setSocialAds] = useState<SocialAd[]>(() => JSON.parse(localStorage.getItem('socialAds') || '[]'));
-  const [videoAds, setVideoAds] = useState<VideoAd[]>(() => JSON.parse(localStorage.getItem('videoAds') || '[]'));
+  const { socialAds, videoAds, loading, addSocialAd, deleteSocialAd, addVideoAd, deleteVideoAd } = useAds();
   const [adCode, setAdCode] = useState('');
   const [adPage, setAdPage] = useState('home');
   const [adDuration, setAdDuration] = useState('30');
@@ -21,38 +18,26 @@ export default function AdminAds() {
   const [redirectLink, setRedirectLink] = useState('');
   const [videoDuration, setVideoDuration] = useState('15');
 
-  const addSocialAd = () => {
+  const handleAddSocial = async () => {
     if (!adCode.trim()) { toast.error('Enter ad code'); return; }
-    const ad: SocialAd = { id: Math.random().toString(36).substring(2), code: adCode, page: adPage, duration: Number(adDuration) };
-    const updated = [...socialAds, ad];
-    setSocialAds(updated);
-    localStorage.setItem('socialAds', JSON.stringify(updated));
+    await addSocialAd(adCode, adPage, Number(adDuration));
     setAdCode('');
     toast.success('Social ad added');
   };
 
-  const deleteSocialAd = (id: string) => {
-    const updated = socialAds.filter(a => a.id !== id);
-    setSocialAds(updated);
-    localStorage.setItem('socialAds', JSON.stringify(updated));
-  };
-
-  const addVideoAd = () => {
+  const handleAddVideo = async () => {
     if (!videoUrl.trim()) { toast.error('Enter video URL'); return; }
-    const ad: VideoAd = { id: Math.random().toString(36).substring(2), videoUrl, redirectLink, duration: Number(videoDuration) };
-    const updated = [...videoAds, ad];
-    setVideoAds(updated);
-    localStorage.setItem('videoAds', JSON.stringify(updated));
+    await addVideoAd(videoUrl, redirectLink, Number(videoDuration));
     setVideoUrl('');
     setRedirectLink('');
     toast.success('Video ad added');
   };
 
-  const deleteVideoAd = (id: string) => {
-    const updated = videoAds.filter(a => a.id !== id);
-    setVideoAds(updated);
-    localStorage.setItem('videoAds', JSON.stringify(updated));
-  };
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center">
+      <Loader2 className="animate-spin text-primary" size={32} />
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -72,7 +57,7 @@ export default function AdminAds() {
                 </SelectContent>
               </Select>
               <Input type="number" placeholder="Days" value={adDuration} onChange={e => setAdDuration(e.target.value)} className="w-20" />
-              <Button onClick={addSocialAd} size="icon"><Plus size={16} /></Button>
+              <Button onClick={handleAddSocial} size="icon"><Plus size={16} /></Button>
             </div>
             {socialAds.map(ad => (
               <div key={ad.id} className="flex items-center justify-between p-2 bg-muted rounded-lg">
@@ -89,11 +74,11 @@ export default function AdminAds() {
             <Input placeholder="Redirect link" value={redirectLink} onChange={e => setRedirectLink(e.target.value)} />
             <div className="flex gap-2">
               <Input type="number" placeholder="Duration (sec)" value={videoDuration} onChange={e => setVideoDuration(e.target.value)} />
-              <Button onClick={addVideoAd}><Plus size={16} className="mr-1" /> Add</Button>
+              <Button onClick={handleAddVideo}><Plus size={16} className="mr-1" /> Add</Button>
             </div>
             {videoAds.map(ad => (
               <div key={ad.id} className="flex items-center justify-between p-2 bg-muted rounded-lg">
-                <span className="text-sm truncate flex-1">{ad.duration}s · {ad.redirectLink || 'No link'}</span>
+                <span className="text-sm truncate flex-1">{ad.duration}s · {ad.redirect_link || 'No link'}</span>
                 <Button variant="ghost" size="icon" onClick={() => deleteVideoAd(ad.id)}><Trash2 size={14} /></Button>
               </div>
             ))}

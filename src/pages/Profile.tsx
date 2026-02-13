@@ -2,6 +2,8 @@ import { useState } from 'react';
 import Header from '@/components/Header';
 import BottomNav from '@/components/BottomNav';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAds } from '@/hooks/useAds';
+import { SocialAdBanner } from '@/components/AdBanner';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +13,7 @@ import { toast } from 'sonner';
 
 export default function Profile() {
   const { profile, updateProfile, logout } = useAuth();
+  const { socialAds } = useAds();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(profile?.name || '');
   const [state, setState] = useState(profile?.state || '');
@@ -35,6 +38,7 @@ export default function Profile() {
     <div className="min-h-screen bg-background pb-20">
       <Header />
       <main className="max-w-lg mx-auto px-4 py-6 space-y-6">
+        <SocialAdBanner ads={socialAds} page="profile" />
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-4 mb-6">
