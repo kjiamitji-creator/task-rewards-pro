@@ -191,6 +191,7 @@ export type Database = {
           created_at: string
           duration: number
           id: string
+          page: string
           redirect_link: string | null
           video_url: string
         }
@@ -199,6 +200,7 @@ export type Database = {
           created_at?: string
           duration?: number
           id?: string
+          page?: string
           redirect_link?: string | null
           video_url: string
         }
@@ -207,6 +209,7 @@ export type Database = {
           created_at?: string
           duration?: number
           id?: string
+          page?: string
           redirect_link?: string | null
           video_url?: string
         }

@@ -6,6 +6,7 @@ import { useSettings } from '@/hooks/useSettings';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useAds } from '@/hooks/useAds';
 import { SocialAdBanner } from '@/components/AdBanner';
+import { VideoAdOverlay } from '@/components/VideoAdOverlay';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -18,10 +19,11 @@ export default function Wallet() {
   const { user, profile, deductCoins } = useAuth();
   const { settings } = useSettings();
   const { transactions, addTransaction } = useTransactions();
-  const { socialAds } = useAds();
+  const { socialAds, videoAds } = useAds();
   const [upiId, setUpiId] = useState('');
   const [accountName, setAccountName] = useState('');
   const [open, setOpen] = useState(false);
+  const [showVideoAd, setShowVideoAd] = useState(() => videoAds.filter(a => a.page === 'wallet').length > 0);
 
   if (!profile || !user) return null;
 
@@ -59,6 +61,9 @@ export default function Wallet() {
   return (
     <div className="min-h-screen bg-background pb-20">
       <Header />
+      {showVideoAd && (
+        <VideoAdOverlay ads={videoAds} page="wallet" onComplete={() => setShowVideoAd(false)} />
+      )}
       <main className="max-w-lg mx-auto px-4 py-6 space-y-6">
         <SocialAdBanner ads={socialAds} page="wallet" />
         <Card className="overflow-hidden">

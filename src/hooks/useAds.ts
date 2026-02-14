@@ -16,6 +16,7 @@ export interface VideoAd {
   redirect_link: string;
   duration: number;
   active: boolean;
+  page: string;
   created_at: string;
 }
 
@@ -56,8 +57,8 @@ export function useAds() {
     await fetchAds();
   };
 
-  const addVideoAd = async (video_url: string, redirect_link: string, duration: number) => {
-    await supabase.from('video_ads').insert({ video_url, redirect_link, duration } as any);
+  const addVideoAd = async (video_url: string, redirect_link: string, duration: number, page: string) => {
+    await supabase.from('video_ads').insert({ video_url, redirect_link, duration, page } as any);
     await fetchAds();
   };
 
@@ -66,5 +67,13 @@ export function useAds() {
     await fetchAds();
   };
 
-  return { socialAds, videoAds, loading, addSocialAd, deleteSocialAd, addVideoAd, deleteVideoAd };
+  const uploadVideoFile = async (file: File): Promise<string | null> => {
+    const fileName = `${Date.now()}-${file.name}`;
+    const { error } = await supabase.storage.from('ad-videos').upload(fileName, file);
+    if (error) return null;
+    const { data } = supabase.storage.from('ad-videos').getPublicUrl(fileName);
+    return data.publicUrl;
+  };
+
+  return { socialAds, videoAds, loading, addSocialAd, deleteSocialAd, addVideoAd, deleteVideoAd, uploadVideoFile };
 }
