@@ -4,16 +4,18 @@ import type { VideoAd } from '@/hooks/useAds';
 
 interface Props {
   ads: VideoAd[];
+  page: string;
   onComplete: () => void;
 }
 
-export function VideoAdOverlay({ ads, onComplete }: Props) {
+export function VideoAdOverlay({ ads, page, onComplete }: Props) {
+  const pageAds = ads.filter(ad => ad.page === page);
   const [currentAdIndex, setCurrentAdIndex] = useState(0);
   const [countdown, setCountdown] = useState(0);
-  const [canSkip, setCanSkip] = useState(false);
+  const [canClose, setCanClose] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const currentAd = ads[currentAdIndex];
+  const currentAd = pageAds[currentAdIndex];
 
   useEffect(() => {
     if (!currentAd) {
@@ -21,16 +23,15 @@ export function VideoAdOverlay({ ads, onComplete }: Props) {
       return;
     }
     setCountdown(currentAd.duration);
-    setCanSkip(false);
+    setCanClose(false);
 
     timerRef.current = setInterval(() => {
       setCountdown(prev => {
         if (prev <= 1) {
           clearInterval(timerRef.current!);
-          setCanSkip(true);
+          setCanClose(true);
           return 0;
         }
-        if (prev <= currentAd.duration - 5) setCanSkip(true);
         return prev - 1;
       });
     }, 1000);
@@ -38,10 +39,10 @@ export function VideoAdOverlay({ ads, onComplete }: Props) {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [currentAdIndex, currentAd]);
 
-  if (!currentAd || ads.length === 0) return null;
+  if (!currentAd || pageAds.length === 0) return null;
 
-  const handleSkip = () => {
-    if (currentAdIndex < ads.length - 1) {
+  const handleClose = () => {
+    if (currentAdIndex < pageAds.length - 1) {
       setCurrentAdIndex(prev => prev + 1);
     } else {
       onComplete();
@@ -69,15 +70,15 @@ export function VideoAdOverlay({ ads, onComplete }: Props) {
         <div className="absolute top-3 right-3 flex items-center gap-2">
           {countdown > 0 && (
             <span className="bg-black/70 text-white text-xs px-3 py-1.5 rounded-full">
-              Ad {currentAdIndex + 1}/{ads.length} · {countdown}s
+              Ad {currentAdIndex + 1}/{pageAds.length} · {countdown}s
             </span>
           )}
-          {canSkip && (
+          {canClose && (
             <button
-              onClick={handleSkip}
+              onClick={handleClose}
               className="bg-white/90 hover:bg-white text-black text-sm font-medium px-4 py-1.5 rounded-full flex items-center gap-1 transition-colors"
             >
-              Skip <X size={14} />
+              Close <X size={14} />
             </button>
           )}
         </div>

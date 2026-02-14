@@ -37,7 +37,6 @@ export default function Home() {
 
   const coinsPerMinute = settings.coins_per_minute || 1;
 
-  // Track watch time
   useEffect(() => {
     if (isWatching && videoId) {
       timerRef.current = setInterval(() => {
@@ -51,7 +50,6 @@ export default function Home() {
     };
   }, [isWatching, videoId]);
 
-  // Auto-credit coins every minute
   useEffect(() => {
     const currentMinute = Math.floor(watchSeconds / 60);
     if (currentMinute > lastCreditedMinute && videoId) {
@@ -73,8 +71,7 @@ export default function Home() {
       setEarnedCoins(0);
       setLastCreditedMinute(0);
       setIsWatching(false);
-      // Show video ad before playing
-      if (videoAds.length > 0) {
+      if (videoAds.filter(a => a.page === 'home').length > 0) {
         setShowVideoAd(true);
       }
     } else {
@@ -111,12 +108,10 @@ export default function Home() {
     <div className="min-h-screen bg-background pb-20">
       <Header />
       {showVideoAd && (
-        <VideoAdOverlay ads={videoAds} onComplete={() => setShowVideoAd(false)} />
+        <VideoAdOverlay ads={videoAds} page="home" onComplete={() => setShowVideoAd(false)} />
       )}
       <main className="max-w-lg mx-auto px-4 py-6 space-y-5">
-        {/* Social Ads */}
         <SocialAdBanner ads={socialAds} page="home" />
-        {/* Search */}
         <Card className="border-primary/20 shadow-sm">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground mb-3 flex items-center gap-2">
@@ -140,7 +135,6 @@ export default function Home() {
 
         {videoId && (
           <div className="space-y-4">
-            {/* Video Player */}
             <div
               ref={videoContainerRef}
               className="relative aspect-video rounded-xl overflow-hidden bg-muted shadow-lg border border-border"
@@ -160,7 +154,6 @@ export default function Home() {
               </button>
             </div>
 
-            {/* Watch Controls */}
             <Card className="overflow-hidden">
               <CardContent className="p-4 space-y-4">
                 <div className="flex items-center justify-between">
@@ -181,7 +174,6 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* Progress to next coin */}
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>Next coin in {60 - (watchSeconds % 60)}s</span>
@@ -190,7 +182,6 @@ export default function Home() {
                   <Progress value={progressToNextCoin} className="h-2" />
                 </div>
 
-                {/* Earned display */}
                 <div className="flex items-center justify-center gap-3 bg-primary/5 rounded-xl p-4">
                   <Coins size={28} className="text-primary" />
                   <div>

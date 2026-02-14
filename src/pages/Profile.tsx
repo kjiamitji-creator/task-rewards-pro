@@ -4,6 +4,7 @@ import BottomNav from '@/components/BottomNav';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAds } from '@/hooks/useAds';
 import { SocialAdBanner } from '@/components/AdBanner';
+import { VideoAdOverlay } from '@/components/VideoAdOverlay';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,11 +14,12 @@ import { toast } from 'sonner';
 
 export default function Profile() {
   const { profile, updateProfile, logout } = useAuth();
-  const { socialAds } = useAds();
+  const { socialAds, videoAds } = useAds();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(profile?.name || '');
   const [state, setState] = useState(profile?.state || '');
   const [country, setCountry] = useState(profile?.country || '');
+  const [showVideoAd, setShowVideoAd] = useState(() => videoAds.filter(a => a.page === 'profile').length > 0);
 
   if (!profile) return null;
 
@@ -37,6 +39,9 @@ export default function Profile() {
   return (
     <div className="min-h-screen bg-background pb-20">
       <Header />
+      {showVideoAd && (
+        <VideoAdOverlay ads={videoAds} page="profile" onComplete={() => setShowVideoAd(false)} />
+      )}
       <main className="max-w-lg mx-auto px-4 py-6 space-y-6">
         <SocialAdBanner ads={socialAds} page="profile" />
         <Card>
