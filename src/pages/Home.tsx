@@ -37,6 +37,15 @@ export default function Home() {
 
   const coinsPerMinute = settings.coins_per_minute || 1;
 
+  // Auto-start timer when video is loaded (user clicks play in iframe)
+  // We start the timer automatically when the video loads
+  useEffect(() => {
+    if (videoId) {
+      // Auto-start watching when video is loaded
+      setIsWatching(true);
+    }
+  }, [videoId]);
+
   useEffect(() => {
     if (isWatching && videoId) {
       timerRef.current = setInterval(() => {
@@ -140,7 +149,7 @@ export default function Home() {
               className="relative aspect-video rounded-xl overflow-hidden bg-muted shadow-lg border border-border"
             >
               <iframe
-                src={`https://www.youtube.com/embed/${videoId}?autoplay=0&controls=1&rel=0&modestbranding=1&fs=1`}
+                src={`https://www.youtube.com/embed/${videoId}?autoplay=1&controls=1&rel=0&modestbranding=1&fs=1`}
                 className="w-full h-full"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
                 allowFullScreen
@@ -157,17 +166,10 @@ export default function Home() {
             <Card className="overflow-hidden">
               <CardContent className="p-4 space-y-4">
                 <div className="flex items-center justify-between">
-                  <Button
-                    onClick={() => setIsWatching(!isWatching)}
-                    variant={isWatching ? 'destructive' : 'default'}
-                    className="gap-2"
-                  >
-                    {isWatching ? (
-                      <><Timer size={16} /> Pause Timer</>
-                    ) : (
-                      <><Play size={16} /> Start Watching</>
-                    )}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-3 h-3 rounded-full ${isWatching ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground/30'}`} />
+                    <span className="text-sm font-medium">{isWatching ? 'Timer Running' : 'Paused'}</span>
+                  </div>
                   <div className="text-right">
                     <p className="text-2xl font-bold text-primary">{formatTime(watchSeconds)}</p>
                     <p className="text-xs text-muted-foreground">Watch Time</p>

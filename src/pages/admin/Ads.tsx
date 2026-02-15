@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Trash2, Plus, Loader2, Upload, Video, Code } from 'lucide-react';
+import { Trash2, Plus, Loader2, Upload, Video, Code, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAds } from '@/hooks/useAds';
 
@@ -18,6 +18,8 @@ export default function AdminAds() {
   const [redirectLink, setRedirectLink] = useState('');
   const [videoDuration, setVideoDuration] = useState('15');
   const [uploading, setUploading] = useState(false);
+  const [uploadedVideoUrl, setUploadedVideoUrl] = useState<string | null>(null);
+  const [uploadedFileName, setUploadedFileName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleAddSocial = async () => {
@@ -27,7 +29,7 @@ export default function AdminAds() {
     toast.success('Social ad added');
   };
 
-  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSelectVideo = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('video/')) {
@@ -35,16 +37,29 @@ export default function AdminAds() {
       return;
     }
     setUploading(true);
+    setUploadedFileName(file.name);
     const url = await uploadVideoFile(file);
     if (url) {
-      await addVideoAd(url, redirectLink, Number(videoDuration), videoPage);
-      setRedirectLink('');
-      toast.success('Video ad uploaded & added');
+      setUploadedVideoUrl(url);
+      toast.success('Video uploaded successfully!');
     } else {
       toast.error('Upload failed');
+      setUploadedFileName('');
     }
     setUploading(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleCreateVideoAd = async () => {
+    if (!uploadedVideoUrl) {
+      toast.error('Please upload a video first');
+      return;
+    }
+    await addVideoAd(uploadedVideoUrl, redirectLink, Number(videoDuration), videoPage);
+    setUploadedVideoUrl(null);
+    setUploadedFileName('');
+    setRedirectLink('');
+    toast.success('Video ad created!');
   };
 
   if (loading) return (
@@ -91,33 +106,57 @@ export default function AdminAds() {
             <CardTitle className="text-lg flex items-center gap-2"><Video size={18} /> Video Ads (Direct Upload)</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Select value={videoPage} onValueChange={setVideoPage}>
-              <SelectTrigger><SelectValue placeholder="Select page" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="home">Home</SelectItem>
-                <SelectItem value="wallet">Wallet</SelectItem>
-                <SelectItem value="profile">Profile</SelectItem>
-              </SelectContent>
-            </Select>
-            <Input placeholder="Redirect link (click destination)" value={redirectLink} onChange={e => setRedirectLink(e.target.value)} />
-            <Input type="number" placeholder="Duration (seconds)" value={videoDuration} onChange={e => setVideoDuration(e.target.value)} />
-            <input ref={fileInputRef} type="file" accept="video/*" className="hidden" onChange={handleVideoUpload} />
-            <Button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="w-full gap-2"
-            >
-              {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-              {uploading ? 'Uploading...' : 'Upload Video'}
-            </Button>
-            {videoAds.map(ad => (
-              <div key={ad.id} className="flex items-center justify-between p-2 bg-muted rounded-lg">
-                <span className="text-sm truncate flex-1">
-                  <Video size={12} className="inline mr-1" />{ad.page} · {ad.duration}s · {ad.redirect_link || 'No link'}
-                </span>
-                <Button variant="ghost" size="icon" onClick={() => deleteVideoAd(ad.id)}><Trash2 size={14} /></Button>
+            {/* Step 1: Upload Video */}
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">Step 1: Upload Video</p>
+              <input ref={fileInputRef} type="file" accept="video/*" className="hidden" onChange={handleSelectVideo} />
+              <Button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                variant={uploadedVideoUrl ? 'outline' : 'default'}
+                className="w-full gap-2"
+              >
+                {uploading ? <Loader2 size={16} className="animate-spin" /> : uploadedVideoUrl ? <CheckCircle size={16} /> : <Upload size={16} />}
+                {uploading ? 'Uploading...' : uploadedVideoUrl ? `Uploaded: ${uploadedFileName}` : 'Select & Upload Video'}
+              </Button>
+            </div>
+
+            {/* Step 2: Configure & Create Ad */}
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">Step 2: Configure Ad</p>
+              <Select value={videoPage} onValueChange={setVideoPage}>
+                <SelectTrigger><SelectValue placeholder="Select page" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="home">Home</SelectItem>
+                  <SelectItem value="wallet">Wallet</SelectItem>
+                  <SelectItem value="profile">Profile</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input placeholder="Redirect link (click destination)" value={redirectLink} onChange={e => setRedirectLink(e.target.value)} />
+              <Input type="number" placeholder="Duration (seconds)" value={videoDuration} onChange={e => setVideoDuration(e.target.value)} />
+              <Button
+                onClick={handleCreateVideoAd}
+                disabled={!uploadedVideoUrl}
+                className="w-full gap-2"
+              >
+                <Plus size={16} /> Create Video Ad
+              </Button>
+            </div>
+
+            {/* List of existing video ads */}
+            {videoAds.length > 0 && (
+              <div className="space-y-2 pt-2 border-t border-border">
+                <p className="text-xs font-medium text-muted-foreground">Active Video Ads</p>
+                {videoAds.map(ad => (
+                  <div key={ad.id} className="flex items-center justify-between p-2 bg-muted rounded-lg">
+                    <span className="text-sm truncate flex-1">
+                      <Video size={12} className="inline mr-1" />{ad.page} · {ad.duration}s · {ad.redirect_link || 'No link'}
+                    </span>
+                    <Button variant="ghost" size="icon" onClick={() => deleteVideoAd(ad.id)}><Trash2 size={14} /></Button>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </CardContent>
         </Card>
       </main>

@@ -9,7 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { User as UserIcon, Copy, Share2, Edit, Trophy } from 'lucide-react';
+import { User as UserIcon, Copy, Share2, Edit, Trophy, Link as LinkIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Profile() {
@@ -31,7 +31,12 @@ export default function Profile() {
     toast.success('Profile updated!');
   };
 
-  const copyReferral = () => {
+  const copyReferralCode = () => {
+    navigator.clipboard.writeText(profile.referral_code || '');
+    toast.success('Referral code copied!');
+  };
+
+  const copyReferralLink = () => {
     navigator.clipboard.writeText(referralLink);
     toast.success('Referral link copied!');
   };
@@ -102,12 +107,24 @@ export default function Profile() {
               <Share2 size={18} /> Referral Program
             </h3>
             <div className="space-y-4">
+              {/* Referral Code */}
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Your Referral Code</p>
                 <div className="flex items-center gap-2">
                   <Input value={profile.referral_code} readOnly className="font-mono text-lg font-bold" />
-                  <Button variant="outline" size="icon" onClick={copyReferral}>
+                  <Button variant="outline" size="icon" onClick={copyReferralCode} title="Copy code">
                     <Copy size={16} />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Referral Link */}
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Your Referral Link</p>
+                <div className="flex items-center gap-2">
+                  <Input value={referralLink} readOnly className="text-xs" />
+                  <Button variant="outline" size="icon" onClick={copyReferralLink} title="Copy link">
+                    <LinkIcon size={16} />
                   </Button>
                 </div>
               </div>
