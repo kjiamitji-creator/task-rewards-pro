@@ -4,8 +4,7 @@ import BottomNav from '@/components/BottomNav';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { Search, Play, Coins, Timer, Maximize2 } from 'lucide-react';
+import { Search, Play, Coins, Maximize2, RectangleHorizontal } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/hooks/useSettings';
 import { useAds } from '@/hooks/useAds';
@@ -20,6 +19,26 @@ function extractVideoId(url: string): string | null {
   return match ? match[1] : null;
 }
 
+// Load YouTube IFrame API once globally
+let ytApiLoaded = false;
+let ytApiReady = false;
+const ytReadyCallbacks: (() => void)[] = [];
+
+function loadYTApi(cb: () => void) {
+  if (ytApiReady) { cb(); return; }
+  ytReadyCallbacks.push(cb);
+  if (ytApiLoaded) return;
+  ytApiLoaded = true;
+  const tag = document.createElement('script');
+  tag.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(tag);
+  (window as any).onYouTubeIframeAPIReady = () => {
+    ytApiReady = true;
+    ytReadyCallbacks.forEach(fn => fn());
+    ytReadyCallbacks.length = 0;
+  };
+}
+
 export default function Home() {
   const [url, setUrl] = useState('');
   const [videoId, setVideoId] = useState<string | null>(null);
@@ -28,24 +47,64 @@ export default function Home() {
   const [lastCreditedMinute, setLastCreditedMinute] = useState(0);
   const [isWatching, setIsWatching] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isTheaterMode, setIsTheaterMode] = useState(false);
   const [showVideoAd, setShowVideoAd] = useState(false);
   const { addCoins, profile } = useAuth();
   const { settings } = useSettings();
   const { socialAds, videoAds } = useAds();
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
+  const playerRef = useRef<any>(null);
+  const playerContainerId = 'yt-player-container';
 
   const coinsPerMinute = settings.coins_per_minute || 1;
 
-  // Auto-start timer when video is loaded (user clicks play in iframe)
-  // We start the timer automatically when the video loads
+  // Initialize YouTube player when videoId changes
   useEffect(() => {
-    if (videoId) {
-      // Auto-start watching when video is loaded
-      setIsWatching(true);
-    }
+    if (!videoId) return;
+
+    const initPlayer = () => {
+      // Destroy previous player
+      if (playerRef.current) {
+        try { playerRef.current.destroy(); } catch {}
+        playerRef.current = null;
+      }
+
+      playerRef.current = new (window as any).YT.Player(playerContainerId, {
+        videoId,
+        playerVars: {
+          autoplay: 1,
+          controls: 1,
+          rel: 0,
+          modestbranding: 1,
+          fs: 1,
+          playsinline: 1,
+        },
+        events: {
+          onStateChange: (event: any) => {
+            const YT = (window as any).YT;
+            if (event.data === YT.PlayerState.PLAYING) {
+              setIsWatching(true);
+            } else {
+              // PAUSED, BUFFERING, ENDED, CUED — all stop timer
+              setIsWatching(false);
+            }
+          },
+        },
+      });
+    };
+
+    loadYTApi(initPlayer);
+
+    return () => {
+      if (playerRef.current) {
+        try { playerRef.current.destroy(); } catch {}
+        playerRef.current = null;
+      }
+    };
   }, [videoId]);
 
+  // Internal timer — runs only when video is playing
   useEffect(() => {
     if (isWatching && videoId) {
       timerRef.current = setInterval(() => {
@@ -59,6 +118,7 @@ export default function Home() {
     };
   }, [isWatching, videoId]);
 
+  // Credit coins
   useEffect(() => {
     const currentMinute = Math.floor(watchSeconds / 60);
     if (currentMinute > lastCreditedMinute && videoId) {
@@ -105,21 +165,13 @@ export default function Home() {
     return () => document.removeEventListener('fullscreenchange', handler);
   }, []);
 
-  const formatTime = (s: number) => {
-    const m = Math.floor(s / 60);
-    const sec = s % 60;
-    return `${m}:${sec.toString().padStart(2, '0')}`;
-  };
-
-  const progressToNextCoin = ((watchSeconds % 60) / 60) * 100;
-
   return (
     <div className="min-h-screen bg-background pb-20">
       <Header />
       {showVideoAd && (
         <VideoAdOverlay ads={videoAds} page="home" onComplete={() => setShowVideoAd(false)} />
       )}
-      <main className="max-w-lg mx-auto px-4 py-6 space-y-5">
+      <main className={`mx-auto px-4 py-6 space-y-5 ${isTheaterMode ? 'max-w-4xl' : 'max-w-lg'}`}>
         <SocialAdBanner ads={socialAds} page="home" />
         <Card className="border-primary/20 shadow-sm">
           <CardContent className="p-4">
@@ -148,40 +200,33 @@ export default function Home() {
               ref={videoContainerRef}
               className="relative aspect-video rounded-xl overflow-hidden bg-muted shadow-lg border border-border"
             >
-              <iframe
-                src={`https://www.youtube.com/embed/${videoId}?autoplay=1&controls=1&rel=0&modestbranding=1&fs=1`}
-                className="w-full h-full"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-                allowFullScreen
-                title="YouTube Video"
-              />
-              <button
-                onClick={toggleFullscreen}
-                className="absolute top-3 right-3 bg-black/60 hover:bg-black/80 text-white rounded-lg p-2 transition-colors z-10"
-              >
-                <Maximize2 size={16} />
-              </button>
+              <div id={playerContainerId} className="w-full h-full" />
+              <div className="absolute top-3 right-3 flex items-center gap-2 z-10">
+                <button
+                  onClick={() => setIsTheaterMode(prev => !prev)}
+                  className={`bg-black/60 hover:bg-black/80 text-white rounded-lg p-2 transition-colors ${isTheaterMode ? 'ring-2 ring-primary' : ''}`}
+                  title={isTheaterMode ? 'Exit Theater Mode' : 'Theater Mode (16:9)'}
+                >
+                  <RectangleHorizontal size={16} />
+                </button>
+                <button
+                  onClick={toggleFullscreen}
+                  className="bg-black/60 hover:bg-black/80 text-white rounded-lg p-2 transition-colors"
+                >
+                  <Maximize2 size={16} />
+                </button>
+              </div>
             </div>
 
+            {/* Earnings card — no visible timer, only coins earned */}
             <Card className="overflow-hidden">
               <CardContent className="p-4 space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className={`w-3 h-3 rounded-full ${isWatching ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground/30'}`} />
-                    <span className="text-sm font-medium">{isWatching ? 'Timer Running' : 'Paused'}</span>
+                    <span className="text-sm font-medium">{isWatching ? 'Earning...' : 'Paused'}</span>
                   </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-primary">{formatTime(watchSeconds)}</p>
-                    <p className="text-xs text-muted-foreground">Watch Time</p>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Next coin in {60 - (watchSeconds % 60)}s</span>
-                    <span>{coinsPerMinute} coin/min</span>
-                  </div>
-                  <Progress value={progressToNextCoin} className="h-2" />
+                  <p className="text-xs text-muted-foreground">{coinsPerMinute} coin/min</p>
                 </div>
 
                 <div className="flex items-center justify-center gap-3 bg-primary/5 rounded-xl p-4">
