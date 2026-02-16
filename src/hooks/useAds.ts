@@ -48,7 +48,8 @@ export function useAds() {
   }, []);
 
   const addSocialAd = async (code: string, page: string, duration: number) => {
-    await supabase.from('social_ads').insert({ code, page, duration } as any);
+    const { error } = await supabase.from('social_ads').insert({ code, page, duration } as any);
+    if (error) throw error;
     await fetchAds();
   };
 
@@ -58,7 +59,8 @@ export function useAds() {
   };
 
   const addVideoAd = async (video_url: string, redirect_link: string, duration: number, page: string) => {
-    await supabase.from('video_ads').insert({ video_url, redirect_link, duration, page } as any);
+    const { error } = await supabase.from('video_ads').insert({ video_url, redirect_link, duration, page } as any);
+    if (error) throw error;
     await fetchAds();
   };
 
@@ -67,13 +69,46 @@ export function useAds() {
     await fetchAds();
   };
 
-  const uploadVideoFile = async (file: File): Promise<string | null> => {
-    const fileName = `${Date.now()}-${file.name}`;
-    const { error } = await supabase.storage.from('ad-videos').upload(fileName, file);
-    if (error) return null;
-    const { data } = supabase.storage.from('ad-videos').getPublicUrl(fileName);
-    return data.publicUrl;
+  // Upload video with XHR for live progress tracking
+  const uploadVideoFile = async (
+    file: File,
+    onProgress?: (percent: number) => void
+  ): Promise<string | null> => {
+    return new Promise((resolve) => {
+      const fileName = `${Date.now()}-${file.name}`;
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/ad-videos/${fileName}`;
+
+      const formData = new FormData();
+      formData.append('cacheControl', '3600');
+      formData.append('', file);
+
+      const xhr = new XMLHttpRequest();
+
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable && onProgress) {
+          const percent = Math.round((e.loaded / e.total) * 100);
+          onProgress(percent);
+        }
+      });
+
+      xhr.addEventListener('load', () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          const { data } = supabase.storage.from('ad-videos').getPublicUrl(fileName);
+          resolve(data.publicUrl);
+        } else {
+          resolve(null);
+        }
+      });
+
+      xhr.addEventListener('error', () => resolve(null));
+
+      xhr.open('POST', url);
+      xhr.setRequestHeader('apikey', import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY);
+      xhr.setRequestHeader('Authorization', `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`);
+      xhr.setRequestHeader('x-upsert', 'false');
+      xhr.send(formData);
+    });
   };
 
-  return { socialAds, videoAds, loading, addSocialAd, deleteSocialAd, addVideoAd, deleteVideoAd, uploadVideoFile };
+  return { socialAds, videoAds, loading, addSocialAd, deleteSocialAd, addVideoAd, deleteVideoAd, uploadVideoFile, fetchAds };
 }

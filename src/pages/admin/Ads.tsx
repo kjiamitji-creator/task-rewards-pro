@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Progress } from '@/components/ui/progress';
 import { Trash2, Plus, Loader2, Upload, Video, Code, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAds } from '@/hooks/useAds';
@@ -18,15 +19,24 @@ export default function AdminAds() {
   const [redirectLink, setRedirectLink] = useState('');
   const [videoDuration, setVideoDuration] = useState('15');
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadedVideoUrl, setUploadedVideoUrl] = useState<string | null>(null);
   const [uploadedFileName, setUploadedFileName] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [addingSocial, setAddingSocial] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleAddSocial = async () => {
     if (!adCode.trim()) { toast.error('Enter ad code'); return; }
-    await addSocialAd(adCode, adPage, Number(adDuration));
-    setAdCode('');
-    toast.success('Social ad added');
+    setAddingSocial(true);
+    try {
+      await addSocialAd(adCode, adPage, Number(adDuration));
+      setAdCode('');
+      toast.success('Social ad added');
+    } catch (err: any) {
+      toast.error('Failed to add: ' + (err.message || 'Unknown error'));
+    }
+    setAddingSocial(false);
   };
 
   const handleSelectVideo = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -37,8 +47,11 @@ export default function AdminAds() {
       return;
     }
     setUploading(true);
+    setUploadProgress(0);
     setUploadedFileName(file.name);
-    const url = await uploadVideoFile(file);
+    const url = await uploadVideoFile(file, (percent) => {
+      setUploadProgress(percent);
+    });
     if (url) {
       setUploadedVideoUrl(url);
       toast.success('Video uploaded successfully!');
@@ -55,11 +68,17 @@ export default function AdminAds() {
       toast.error('Please upload a video first');
       return;
     }
-    await addVideoAd(uploadedVideoUrl, redirectLink, Number(videoDuration), videoPage);
-    setUploadedVideoUrl(null);
-    setUploadedFileName('');
-    setRedirectLink('');
-    toast.success('Video ad created!');
+    setCreating(true);
+    try {
+      await addVideoAd(uploadedVideoUrl, redirectLink, Number(videoDuration), videoPage);
+      setUploadedVideoUrl(null);
+      setUploadedFileName('');
+      setRedirectLink('');
+      toast.success('Video ad created!');
+    } catch (err: any) {
+      toast.error('Failed to create: ' + (err.message || 'Unknown error'));
+    }
+    setCreating(false);
   };
 
   if (loading) return (
@@ -89,14 +108,21 @@ export default function AdminAds() {
                 </SelectContent>
               </Select>
               <Input type="number" placeholder="Days" value={adDuration} onChange={e => setAdDuration(e.target.value)} className="w-20" />
-              <Button onClick={handleAddSocial} size="icon"><Plus size={16} /></Button>
+              <Button onClick={handleAddSocial} size="icon" disabled={addingSocial}>
+                {addingSocial ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+              </Button>
             </div>
-            {socialAds.map(ad => (
-              <div key={ad.id} className="flex items-center justify-between p-2 bg-muted rounded-lg">
-                <span className="text-sm truncate flex-1"><Code size={12} className="inline mr-1" />{ad.page} · {ad.duration}d</span>
-                <Button variant="ghost" size="icon" onClick={() => deleteSocialAd(ad.id)}><Trash2 size={14} /></Button>
+            {socialAds.length > 0 && (
+              <div className="space-y-2 pt-2 border-t border-border">
+                <p className="text-xs font-medium text-muted-foreground">Active Code Ads ({socialAds.length})</p>
+                {socialAds.map(ad => (
+                  <div key={ad.id} className="flex items-center justify-between p-2 bg-muted rounded-lg">
+                    <span className="text-sm truncate flex-1"><Code size={12} className="inline mr-1" />{ad.page} · {ad.duration}d</span>
+                    <Button variant="ghost" size="icon" onClick={() => deleteSocialAd(ad.id)}><Trash2 size={14} /></Button>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </CardContent>
         </Card>
 
@@ -117,8 +143,11 @@ export default function AdminAds() {
                 className="w-full gap-2"
               >
                 {uploading ? <Loader2 size={16} className="animate-spin" /> : uploadedVideoUrl ? <CheckCircle size={16} /> : <Upload size={16} />}
-                {uploading ? 'Uploading...' : uploadedVideoUrl ? `Uploaded: ${uploadedFileName}` : 'Select & Upload Video'}
+                {uploading ? `Uploading... ${uploadProgress}%` : uploadedVideoUrl ? `Uploaded: ${uploadedFileName}` : 'Select & Upload Video'}
               </Button>
+              {uploading && (
+                <Progress value={uploadProgress} className="h-2" />
+              )}
             </div>
 
             {/* Step 2: Configure & Create Ad */}
@@ -136,17 +165,18 @@ export default function AdminAds() {
               <Input type="number" placeholder="Duration (seconds)" value={videoDuration} onChange={e => setVideoDuration(e.target.value)} />
               <Button
                 onClick={handleCreateVideoAd}
-                disabled={!uploadedVideoUrl}
+                disabled={!uploadedVideoUrl || creating}
                 className="w-full gap-2"
               >
-                <Plus size={16} /> Create Video Ad
+                {creating ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                {creating ? 'Creating...' : 'Create Video Ad'}
               </Button>
             </div>
 
             {/* List of existing video ads */}
             {videoAds.length > 0 && (
               <div className="space-y-2 pt-2 border-t border-border">
-                <p className="text-xs font-medium text-muted-foreground">Active Video Ads</p>
+                <p className="text-xs font-medium text-muted-foreground">Active Video Ads ({videoAds.length})</p>
                 {videoAds.map(ad => (
                   <div key={ad.id} className="flex items-center justify-between p-2 bg-muted rounded-lg">
                     <span className="text-sm truncate flex-1">
