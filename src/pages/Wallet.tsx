@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import BottomNav from '@/components/BottomNav';
 import { useAuth } from '@/contexts/AuthContext';
@@ -23,7 +23,14 @@ export default function Wallet() {
   const [upiId, setUpiId] = useState('');
   const [accountName, setAccountName] = useState('');
   const [open, setOpen] = useState(false);
-  const [showVideoAd, setShowVideoAd] = useState(() => videoAds.filter(a => a.page === 'wallet').length > 0);
+  const [showVideoAd, setShowVideoAd] = useState(false);
+
+  // Show video ad on wallet entry once ads are loaded
+  useEffect(() => {
+    if (videoAds.filter(a => a.page === 'wallet').length > 0) {
+      setShowVideoAd(true);
+    }
+  }, [videoAds]);
 
   if (!profile || !user) return null;
 
