@@ -1,4 +1,4 @@
-import { CreditCard, Users, Megaphone, Settings, LogOut, LayoutDashboard } from 'lucide-react';
+import { CreditCard, Users, Megaphone, Settings, LogOut, LayoutDashboard, Gift } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 
@@ -7,6 +7,7 @@ const items = [
   { path: '/admin/payments', icon: CreditCard, label: 'Payments' },
   { path: '/admin/users', icon: Users, label: 'Users' },
   { path: '/admin/ads', icon: Megaphone, label: 'Ads' },
+  { path: '/admin/rewards', icon: Gift, label: 'Rewards' },
   { path: '/admin/settings', icon: Settings, label: 'Settings' },
 ];
 
