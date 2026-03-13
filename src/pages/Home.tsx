@@ -111,6 +111,8 @@ export default function Home() {
     if (isWatching && videoId) {
       timerRef.current = setInterval(() => {
         setWatchSeconds(prev => prev + 1);
+        // Update reward progress every second
+        updateWatchProgress(1);
       }, 1000);
     } else if (timerRef.current) {
       clearInterval(timerRef.current);
