@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Search, Play, Coins, Maximize2, RectangleHorizontal } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/hooks/useSettings';
+import { useRewards } from '@/hooks/useRewards';
 import { useAds } from '@/hooks/useAds';
 import { SocialAdBanner } from '@/components/AdBanner';
 import { VideoAdOverlay } from '@/components/VideoAdOverlay';
@@ -51,6 +52,7 @@ export default function Home() {
   const [showVideoAd, setShowVideoAd] = useState(false);
   const { addCoins, profile } = useAuth();
   const { settings } = useSettings();
+  const { updateWatchProgress } = useRewards();
   const { socialAds, videoAds } = useAds();
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
@@ -109,6 +111,8 @@ export default function Home() {
     if (isWatching && videoId) {
       timerRef.current = setInterval(() => {
         setWatchSeconds(prev => prev + 1);
+        // Update reward progress every second
+        updateWatchProgress(1);
       }, 1000);
     } else if (timerRef.current) {
       clearInterval(timerRef.current);

@@ -16,7 +16,9 @@ import AdminDashboard from "./pages/admin/Dashboard";
 import AdminPayments from "./pages/admin/Payments";
 import AdminUsers from "./pages/admin/Users";
 import AdminAds from "./pages/admin/Ads";
+import AdminRewards from "./pages/admin/Rewards";
 import AdminSettings from "./pages/admin/Settings";
+import Rewards from "./pages/Rewards";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +36,7 @@ const App = () => (
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/home" element={<UserRoute><Home /></UserRoute>} />
+              <Route path="/rewards" element={<UserRoute><Rewards /></UserRoute>} />
               <Route path="/wallet" element={<UserRoute><Wallet /></UserRoute>} />
               <Route path="/profile" element={<UserRoute><Profile /></UserRoute>} />
               <Route path="/admin/login" element={<AdminLogin />} />
@@ -41,6 +44,7 @@ const App = () => (
               <Route path="/admin/payments" element={<AdminRoute><AdminPayments /></AdminRoute>} />
               <Route path="/admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />
               <Route path="/admin/ads" element={<AdminRoute><AdminAds /></AdminRoute>} />
+              <Route path="/admin/rewards" element={<AdminRoute><AdminRewards /></AdminRoute>} />
               <Route path="/admin/settings" element={<AdminRoute><AdminSettings /></AdminRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>

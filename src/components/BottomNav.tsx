@@ -1,8 +1,9 @@
-import { Home, Wallet, User } from 'lucide-react';
+import { Home, Wallet, User, Gift } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 const items = [
   { path: '/home', icon: Home, label: 'Home' },
+  { path: '/rewards', icon: Gift, label: 'Rewards' },
   { path: '/wallet', icon: Wallet, label: 'Wallet' },
   { path: '/profile', icon: User, label: 'Profile' },
 ];
