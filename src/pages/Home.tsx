@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Search, Play, Coins, Maximize2, RectangleHorizontal } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/hooks/useSettings';
+import { useRewards } from '@/hooks/useRewards';
 import { useAds } from '@/hooks/useAds';
 import { SocialAdBanner } from '@/components/AdBanner';
 import { VideoAdOverlay } from '@/components/VideoAdOverlay';
