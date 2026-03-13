@@ -16,7 +16,9 @@ import AdminDashboard from "./pages/admin/Dashboard";
 import AdminPayments from "./pages/admin/Payments";
 import AdminUsers from "./pages/admin/Users";
 import AdminAds from "./pages/admin/Ads";
+import AdminRewards from "./pages/admin/Rewards";
 import AdminSettings from "./pages/admin/Settings";
+import Rewards from "./pages/Rewards";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
