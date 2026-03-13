@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -24,6 +24,10 @@ export function useRewards() {
   const [progress, setProgress] = useState<UserRewardProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+  
+  // Local accumulator to avoid stale state issues
+  const pendingSecondsRef = useRef<Record<string, number>>({});
+  const flushTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchRewards = async () => {
     const { data } = await supabase
@@ -42,6 +46,38 @@ export function useRewards() {
       .eq('user_id', user.id);
     if (data) setProgress(data as unknown as UserRewardProgress[]);
   };
+
+  // Flush accumulated seconds to DB
+  const flushToDB = useCallback(async () => {
+    if (!user) return;
+    const pending = { ...pendingSecondsRef.current };
+    if (Object.keys(pending).length === 0) return;
+    
+    // Clear pending before async ops
+    pendingSecondsRef.current = {};
+
+    for (const [progressId, seconds] of Object.entries(pending)) {
+      if (seconds <= 0) continue;
+      // Use raw SQL increment via rpc or read-then-write with fresh data
+      const { data: current } = await supabase
+        .from('user_reward_progress')
+        .select('watch_seconds')
+        .eq('id', progressId)
+        .single();
+      
+      if (current) {
+        await supabase
+          .from('user_reward_progress')
+          .update({ 
+            watch_seconds: (current as any).watch_seconds + seconds, 
+            updated_at: new Date().toISOString() 
+          } as any)
+          .eq('id', progressId);
+      }
+    }
+    
+    await fetchProgress();
+  }, [user]);
 
   useEffect(() => {
     fetchRewards().then(() => fetchProgress()).then(() => setLoading(false));
@@ -70,7 +106,20 @@ export function useRewards() {
     return () => { supabase.removeChannel(progressChannel); };
   }, [user]);
 
-  const updateWatchProgress = async (seconds: number) => {
+  // Flush to DB every 5 seconds instead of every second
+  useEffect(() => {
+    flushTimerRef.current = setInterval(() => {
+      flushToDB();
+    }, 5000);
+    
+    return () => {
+      if (flushTimerRef.current) clearInterval(flushTimerRef.current);
+      // Flush remaining on unmount
+      flushToDB();
+    };
+  }, [flushToDB]);
+
+  const updateWatchProgress = useCallback(async (seconds: number) => {
     if (!user || rewards.length === 0) return;
 
     for (const reward of rewards) {
@@ -78,21 +127,31 @@ export function useRewards() {
       if (existing?.claimed) continue;
 
       if (existing) {
-        await supabase
-          .from('user_reward_progress')
-          .update({ watch_seconds: existing.watch_seconds + seconds, updated_at: new Date().toISOString() } as any)
-          .eq('id', existing.id);
+        // Accumulate locally
+        pendingSecondsRef.current[existing.id] = (pendingSecondsRef.current[existing.id] || 0) + seconds;
+        
+        // Update local state immediately for UI responsiveness
+        setProgress(prev => prev.map(p => 
+          p.id === existing.id 
+            ? { ...p, watch_seconds: p.watch_seconds + seconds }
+            : p
+        ));
       } else {
+        // First time - create the progress row
         await supabase
           .from('user_reward_progress')
           .insert({ user_id: user.id, reward_id: reward.id, watch_seconds: seconds } as any);
+        await fetchProgress();
       }
     }
-    await fetchProgress();
-  };
+  }, [user, rewards, progress]);
 
   const claimReward = async (rewardId: string) => {
     if (!user) return false;
+    
+    // Flush pending seconds first
+    await flushToDB();
+    
     const reward = rewards.find(r => r.id === rewardId);
     const prog = progress.find(p => p.reward_id === rewardId);
     if (!reward || !prog || prog.claimed) return false;
