@@ -52,6 +52,7 @@ export default function Home() {
   const [showVideoAd, setShowVideoAd] = useState(false);
   const { addCoins, profile } = useAuth();
   const { settings } = useSettings();
+  const { updateWatchProgress } = useRewards();
   const { socialAds, videoAds } = useAds();
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
