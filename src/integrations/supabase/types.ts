@@ -104,6 +104,30 @@ export type Database = {
         }
         Relationships: []
       }
+      rewards: {
+        Row: {
+          active: boolean
+          coin_amount: number
+          created_at: string
+          id: string
+          watch_time_minutes: number
+        }
+        Insert: {
+          active?: boolean
+          coin_amount: number
+          created_at?: string
+          id?: string
+          watch_time_minutes: number
+        }
+        Update: {
+          active?: boolean
+          coin_amount?: number
+          created_at?: string
+          id?: string
+          watch_time_minutes?: number
+        }
+        Relationships: []
+      }
       social_ads: {
         Row: {
           active: boolean
@@ -166,6 +190,44 @@ export type Database = {
           user_name?: string
         }
         Relationships: []
+      }
+      user_reward_progress: {
+        Row: {
+          claimed: boolean
+          claimed_at: string | null
+          id: string
+          reward_id: string
+          updated_at: string
+          user_id: string
+          watch_seconds: number
+        }
+        Insert: {
+          claimed?: boolean
+          claimed_at?: string | null
+          id?: string
+          reward_id: string
+          updated_at?: string
+          user_id: string
+          watch_seconds?: number
+        }
+        Update: {
+          claimed?: boolean
+          claimed_at?: string | null
+          id?: string
+          reward_id?: string
+          updated_at?: string
+          user_id?: string
+          watch_seconds?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_reward_progress_reward_id_fkey"
+            columns: ["reward_id"]
+            isOneToOne: false
+            referencedRelation: "rewards"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
