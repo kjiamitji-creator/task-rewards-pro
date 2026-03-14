@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import AdminBottomNav from '@/components/AdminBottomNav';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, Ban, Trash2, ShieldCheck, Loader2 } from 'lucide-react';
+import { Search, Snowflake, Trash2, Eye, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -16,7 +17,7 @@ interface UserProfile {
   coins: number;
   completed_tasks: number;
   total_withdrawn: number;
-  blocked: boolean;
+  frozen_until: string | null;
   created_at: string;
 }
 
@@ -25,6 +26,7 @@ export default function AdminUsers() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const fetchUsers = async () => {
     const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
@@ -35,45 +37,40 @@ export default function AdminUsers() {
 
   useEffect(() => {
     fetchUsers();
-
     const channel = supabase
       .channel('admin-users-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => fetchUsers())
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  const toggleBlock = async (user: UserProfile) => {
+  const isFrozen = (u: UserProfile) => {
+    if (!u.frozen_until) return false;
+    return new Date(u.frozen_until) > new Date();
+  };
+
+  const freezeUser = async (user: UserProfile) => {
     setActionLoading(user.id);
-    const newBlocked = !user.blocked;
-    const { error } = await supabase
-      .from('profiles')
-      .update({ blocked: newBlocked } as any)
-      .eq('id', user.id);
-    if (error) {
-      toast.error('Failed to update: ' + error.message);
-    } else {
-      toast.success(newBlocked ? `${user.name} blocked` : `${user.name} unblocked`);
-      await fetchUsers();
-    }
+    const frozen = isFrozen(user);
+    const updates = frozen
+      ? { frozen_until: null }
+      : { frozen_until: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() };
+    const { error } = await supabase.from('profiles').update(updates as any).eq('id', user.id);
+    if (error) toast.error('Failed: ' + error.message);
+    else toast.success(frozen ? `${user.name} unfrozen` : `${user.name} frozen for 7 days`);
+    await fetchUsers();
     setActionLoading(null);
   };
 
   const deleteUser = async (user: UserProfile) => {
-    if (!confirm(`Delete ${user.name}? This will remove their profile and all data.`)) return;
+    if (!confirm(`Permanently delete ${user.name}? This cannot be undone.`)) return;
     setActionLoading(user.id);
-    
-    // Delete transactions first, then profile
     await supabase.from('transactions').delete().eq('user_id', user.user_id);
+    await supabase.from('user_reward_progress').delete().eq('user_id', user.user_id);
     const { error } = await supabase.from('profiles').delete().eq('id', user.id);
-    
-    if (error) {
-      toast.error('Failed to delete: ' + error.message);
-    } else {
-      toast.success(`${user.name} deleted`);
-      await fetchUsers();
-    }
+    if (error) toast.error('Failed: ' + error.message);
+    else toast.success(`${user.name} deleted permanently`);
+    await fetchUsers();
     setActionLoading(null);
   };
 
@@ -101,54 +98,65 @@ export default function AdminUsers() {
         {filtered.length === 0 ? (
           <p className="text-center text-muted-foreground py-8">No users found</p>
         ) : (
-          filtered.map(u => (
-            <Card key={u.id} className={u.blocked ? 'border-destructive/40 opacity-70' : ''}>
-              <CardContent className="p-4">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium truncate">{u.name}</p>
-                      {u.blocked && <Badge variant="destructive" className="text-[10px] px-1.5 py-0">Blocked</Badge>}
-                    </div>
-                    <p className="text-sm text-muted-foreground truncate">{u.email}</p>
-                    <div className="flex gap-3 text-xs text-muted-foreground mt-1">
-                      <span>Coins: {u.coins}</span>
-                      <span>Tasks: {u.completed_tasks}</span>
-                      <span>Withdrawn: {u.total_withdrawn}</span>
-                    </div>
-                  </div>
-                  <div className="flex gap-1 ml-2 shrink-0">
-                    <Button
-                      variant={u.blocked ? 'outline' : 'secondary'}
-                      size="icon"
-                      className="h-8 w-8"
-                      disabled={actionLoading === u.id}
-                      onClick={() => toggleBlock(u)}
-                      title={u.blocked ? 'Unblock' : 'Block'}
-                    >
-                      {actionLoading === u.id ? (
-                        <Loader2 size={14} className="animate-spin" />
-                      ) : u.blocked ? (
-                        <ShieldCheck size={14} />
-                      ) : (
-                        <Ban size={14} />
+          filtered.map(u => {
+            const frozen = isFrozen(u);
+            return (
+              <Card key={u.id} className={frozen ? 'border-blue-400/40 opacity-80' : ''}>
+                <CardContent className="p-4">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium truncate">{u.name}</p>
+                        {frozen && <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-blue-100 text-blue-700">Frozen</Badge>}
+                      </div>
+                      <p className="text-sm text-muted-foreground truncate">{u.email}</p>
+                      <div className="flex gap-3 text-xs text-muted-foreground mt-1">
+                        <span>Coins: {u.coins}</span>
+                        <span>Tasks: {u.completed_tasks}</span>
+                        <span>Withdrawn: {u.total_withdrawn}</span>
+                      </div>
+                      {frozen && u.frozen_until && (
+                        <p className="text-xs text-blue-600 mt-1">
+                          Frozen until: {new Date(u.frozen_until).toLocaleDateString()}
+                        </p>
                       )}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive hover:text-destructive"
-                      disabled={actionLoading === u.id}
-                      onClick={() => deleteUser(u)}
-                      title="Delete user"
-                    >
-                      <Trash2 size={14} />
-                    </Button>
+                    </div>
+                    <div className="flex gap-1 ml-2 shrink-0">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => navigate(`/admin/users/${u.user_id}`)}
+                        title="View details"
+                      >
+                        <Eye size={14} />
+                      </Button>
+                      <Button
+                        variant={frozen ? 'default' : 'secondary'}
+                        size="icon"
+                        className="h-8 w-8"
+                        disabled={actionLoading === u.id}
+                        onClick={() => freezeUser(u)}
+                        title={frozen ? 'Unfreeze' : 'Freeze 7 days'}
+                      >
+                        {actionLoading === u.id ? <Loader2 size={14} className="animate-spin" /> : <Snowflake size={14} />}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        disabled={actionLoading === u.id}
+                        onClick={() => deleteUser(u)}
+                        title="Delete permanently"
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
+                </CardContent>
+              </Card>
+            );
+          })
         )}
       </main>
       <AdminBottomNav />
