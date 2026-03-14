@@ -3,26 +3,77 @@ import { useNavigate } from 'react-router-dom';
 import AdminBottomNav from '@/components/AdminBottomNav';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { ExternalLink, Users, CreditCard, DollarSign } from 'lucide-react';
+import { ExternalLink, Users, CreditCard, DollarSign, TrendingUp, Clock, CheckCircle, XCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const [userCount, setUserCount] = useState(0);
-  const [pendingCount, setPendingCount] = useState(0);
-  const [totalTxns, setTotalTxns] = useState(0);
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    pendingPayments: 0,
+    approvedPayments: 0,
+    rejectedPayments: 0,
+    totalTransactions: 0,
+    totalCoinsInCirculation: 0,
+    totalWithdrawn: 0,
+  });
+
+  const fetchStats = async () => {
+    const [
+      { count: totalUsers },
+      { count: pendingPayments },
+      { count: approvedPayments },
+      { count: rejectedPayments },
+      { count: totalTransactions },
+      { data: profilesData },
+    ] = await Promise.all([
+      supabase.from('profiles').select('*', { count: 'exact', head: true }),
+      supabase.from('transactions').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabase.from('transactions').select('*', { count: 'exact', head: true }).eq('status', 'approved'),
+      supabase.from('transactions').select('*', { count: 'exact', head: true }).eq('status', 'rejected'),
+      supabase.from('transactions').select('*', { count: 'exact', head: true }),
+      supabase.from('profiles').select('coins, total_withdrawn'),
+    ]);
+
+    const totalCoins = (profilesData || []).reduce((sum: number, p: any) => sum + (p.coins || 0), 0);
+    const totalWith = (profilesData || []).reduce((sum: number, p: any) => sum + (p.total_withdrawn || 0), 0);
+
+    setStats({
+      totalUsers: totalUsers || 0,
+      pendingPayments: pendingPayments || 0,
+      approvedPayments: approvedPayments || 0,
+      rejectedPayments: rejectedPayments || 0,
+      totalTransactions: totalTransactions || 0,
+      totalCoinsInCirculation: totalCoins,
+      totalWithdrawn: totalWith,
+    });
+  };
 
   useEffect(() => {
-    const fetchStats = async () => {
-      const { count: uc } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
-      const { count: pc } = await supabase.from('transactions').select('*', { count: 'exact', head: true }).eq('status', 'pending');
-      const { count: tc } = await supabase.from('transactions').select('*', { count: 'exact', head: true });
-      setUserCount(uc || 0);
-      setPendingCount(pc || 0);
-      setTotalTxns(tc || 0);
-    };
     fetchStats();
+
+    const ch1 = supabase.channel('dash-profiles')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => fetchStats())
+      .subscribe();
+    const ch2 = supabase.channel('dash-txns')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, () => fetchStats())
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(ch1);
+      supabase.removeChannel(ch2);
+    };
   }, []);
+
+  const cards = [
+    { icon: Users, label: 'Total Users', value: stats.totalUsers, color: 'text-blue-500' },
+    { icon: Clock, label: 'Pending Payments', value: stats.pendingPayments, color: 'text-yellow-500' },
+    { icon: CheckCircle, label: 'Approved', value: stats.approvedPayments, color: 'text-green-500' },
+    { icon: XCircle, label: 'Rejected', value: stats.rejectedPayments, color: 'text-red-500' },
+    { icon: CreditCard, label: 'Total Transactions', value: stats.totalTransactions, color: 'text-primary' },
+    { icon: TrendingUp, label: 'Coins in Circulation', value: stats.totalCoinsInCirculation, color: 'text-emerald-500' },
+    { icon: DollarSign, label: 'Total Withdrawn', value: stats.totalWithdrawn, color: 'text-orange-500' },
+  ];
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -33,10 +84,16 @@ export default function AdminDashboard() {
         </Button>
       </header>
       <main className="max-w-lg mx-auto px-4 py-6 space-y-4">
-        <div className="grid grid-cols-3 gap-3">
-          <Card><CardContent className="p-4 text-center"><Users size={22} className="mx-auto mb-1 text-primary" /><p className="text-2xl font-bold">{userCount}</p><p className="text-xs text-muted-foreground">Users</p></CardContent></Card>
-          <Card><CardContent className="p-4 text-center"><CreditCard size={22} className="mx-auto mb-1 text-primary" /><p className="text-2xl font-bold">{pendingCount}</p><p className="text-xs text-muted-foreground">Pending</p></CardContent></Card>
-          <Card><CardContent className="p-4 text-center"><DollarSign size={22} className="mx-auto mb-1 text-primary" /><p className="text-2xl font-bold">{totalTxns}</p><p className="text-xs text-muted-foreground">Total Txns</p></CardContent></Card>
+        <div className="grid grid-cols-2 gap-3">
+          {cards.map(({ icon: Icon, label, value, color }) => (
+            <Card key={label}>
+              <CardContent className="p-4 text-center">
+                <Icon size={22} className={`mx-auto mb-1 ${color}`} />
+                <p className="text-2xl font-bold">{value}</p>
+                <p className="text-xs text-muted-foreground">{label}</p>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </main>
       <AdminBottomNav />

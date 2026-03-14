@@ -15,6 +15,7 @@ import AdminLogin from "./pages/admin/AdminLogin";
 import AdminDashboard from "./pages/admin/Dashboard";
 import AdminPayments from "./pages/admin/Payments";
 import AdminUsers from "./pages/admin/Users";
+import UserDetail from "./pages/admin/UserDetail";
 import AdminAds from "./pages/admin/Ads";
 import AdminRewards from "./pages/admin/Rewards";
 import AdminSettings from "./pages/admin/Settings";
@@ -43,6 +44,7 @@ const App = () => (
               <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
               <Route path="/admin/payments" element={<AdminRoute><AdminPayments /></AdminRoute>} />
               <Route path="/admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />
+              <Route path="/admin/users/:userId" element={<AdminRoute><UserDetail /></AdminRoute>} />
               <Route path="/admin/ads" element={<AdminRoute><AdminAds /></AdminRoute>} />
               <Route path="/admin/rewards" element={<AdminRoute><AdminRewards /></AdminRoute>} />
               <Route path="/admin/settings" element={<AdminRoute><AdminSettings /></AdminRoute>} />
