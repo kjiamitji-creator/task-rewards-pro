@@ -94,6 +94,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { success: false, isAdmin: false, error: error.message };
     if (data.user) {
+      // Check if account is frozen
+      const { data: prof } = await supabase.from('profiles').select('frozen_until').eq('user_id', data.user.id).maybeSingle();
+      if (prof && (prof as any).frozen_until && new Date((prof as any).frozen_until) > new Date()) {
+        const until = new Date((prof as any).frozen_until).toLocaleDateString();
+        await supabase.auth.signOut();
+        return { success: false, isAdmin: false, error: `Your account is frozen. Please wait until ${until}.` };
+      }
       await fetchProfile(data.user.id);
       await checkAdmin(data.user.id);
       return { success: true, isAdmin };
