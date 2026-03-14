@@ -25,9 +25,15 @@ export function useRewards() {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   
-  // Local accumulator to avoid stale state issues
   const pendingSecondsRef = useRef<Record<string, number>>({});
   const flushTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const progressRef = useRef<UserRewardProgress[]>([]);
+  const rewardsRef = useRef<Reward[]>([]);
+  const initializingRef = useRef<Set<string>>(new Set());
+
+  // Keep refs in sync
+  useEffect(() => { progressRef.current = progress; }, [progress]);
+  useEffect(() => { rewardsRef.current = rewards; }, [rewards]);
 
   const fetchRewards = async () => {
     const { data } = await supabase
@@ -47,18 +53,14 @@ export function useRewards() {
     if (data) setProgress(data as unknown as UserRewardProgress[]);
   };
 
-  // Flush accumulated seconds to DB
   const flushToDB = useCallback(async () => {
     if (!user) return;
     const pending = { ...pendingSecondsRef.current };
     if (Object.keys(pending).length === 0) return;
-    
-    // Clear pending before async ops
     pendingSecondsRef.current = {};
 
     for (const [progressId, seconds] of Object.entries(pending)) {
       if (seconds <= 0) continue;
-      // Use raw SQL increment via rpc or read-then-write with fresh data
       const { data: current } = await supabase
         .from('user_reward_progress')
         .select('watch_seconds')
@@ -81,91 +83,92 @@ export function useRewards() {
 
   useEffect(() => {
     fetchRewards().then(() => fetchProgress()).then(() => setLoading(false));
-
     const rewardsChannel = supabase
       .channel('rewards-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'rewards' }, () => {
-        fetchRewards();
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rewards' }, () => fetchRewards())
       .subscribe();
-
     return () => { supabase.removeChannel(rewardsChannel); };
   }, []);
 
   useEffect(() => {
     if (!user) return;
     fetchProgress();
-
     const progressChannel = supabase
       .channel('progress-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_reward_progress', filter: `user_id=eq.${user.id}` }, () => {
-        fetchProgress();
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_reward_progress', filter: `user_id=eq.${user.id}` }, () => fetchProgress())
       .subscribe();
-
     return () => { supabase.removeChannel(progressChannel); };
   }, [user]);
 
-  // Flush to DB every 5 seconds instead of every second
   useEffect(() => {
-    flushTimerRef.current = setInterval(() => {
-      flushToDB();
-    }, 5000);
-    
+    flushTimerRef.current = setInterval(() => flushToDB(), 5000);
     return () => {
       if (flushTimerRef.current) clearInterval(flushTimerRef.current);
-      // Flush remaining on unmount
       flushToDB();
     };
   }, [flushToDB]);
 
   const updateWatchProgress = useCallback(async (seconds: number) => {
-    if (!user || rewards.length === 0) return;
+    if (!user) return;
+    const currentRewards = rewardsRef.current;
+    const currentProgress = progressRef.current;
+    if (currentRewards.length === 0) return;
 
-    for (const reward of rewards) {
-      const existing = progress.find(p => p.reward_id === reward.id);
+    for (const reward of currentRewards) {
+      const existing = currentProgress.find(p => p.reward_id === reward.id);
       if (existing?.claimed) continue;
 
       if (existing) {
         // Accumulate locally
         pendingSecondsRef.current[existing.id] = (pendingSecondsRef.current[existing.id] || 0) + seconds;
-        
-        // Update local state immediately for UI responsiveness
+        // Update local state for UI
         setProgress(prev => prev.map(p => 
-          p.id === existing.id 
-            ? { ...p, watch_seconds: p.watch_seconds + seconds }
-            : p
+          p.id === existing.id ? { ...p, watch_seconds: p.watch_seconds + seconds } : p
         ));
       } else {
-        // First time - create the progress row
-        await supabase
+        // Prevent duplicate inserts - check if already initializing
+        if (initializingRef.current.has(reward.id)) continue;
+        initializingRef.current.add(reward.id);
+        
+        // Use upsert to avoid duplicate key errors
+        const { data, error } = await supabase
           .from('user_reward_progress')
-          .insert({ user_id: user.id, reward_id: reward.id, watch_seconds: seconds } as any);
-        await fetchProgress();
+          .upsert(
+            { user_id: user.id, reward_id: reward.id, watch_seconds: seconds } as any,
+            { onConflict: 'user_id,reward_id' }
+          )
+          .select()
+          .single();
+        
+        if (data) {
+          setProgress(prev => {
+            const exists = prev.find(p => p.reward_id === reward.id);
+            if (exists) return prev;
+            return [...prev, data as unknown as UserRewardProgress];
+          });
+        } else if (error) {
+          // If upsert failed, fetch fresh data
+          await fetchProgress();
+        }
+        
+        initializingRef.current.delete(reward.id);
       }
     }
-  }, [user, rewards, progress]);
+  }, [user]);
 
   const claimReward = async (rewardId: string) => {
     if (!user) return false;
-    
-    // Flush pending seconds first
     await flushToDB();
-    
     const reward = rewards.find(r => r.id === rewardId);
     const prog = progress.find(p => p.reward_id === rewardId);
     if (!reward || !prog || prog.claimed) return false;
+    if (prog.watch_seconds < reward.watch_time_minutes * 60) return false;
 
-    const requiredSeconds = reward.watch_time_minutes * 60;
-    if (prog.watch_seconds < requiredSeconds) return false;
-
-    // Mark as claimed
     await supabase
       .from('user_reward_progress')
       .update({ claimed: true, claimed_at: new Date().toISOString() } as any)
       .eq('id', prog.id);
 
-    // Add coins to profile
     const { data: profile } = await supabase
       .from('profiles')
       .select('coins')
