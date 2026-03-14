@@ -52,6 +52,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          account_name: string | null
           avatar_url: string | null
           coins: number
           completed_tasks: number
@@ -60,15 +61,18 @@ export type Database = {
           currency: string | null
           email: string
           id: string
+          mobile_number: string | null
           name: string
           referral_code: string | null
           referred_by: string | null
           state: string | null
           total_withdrawn: number
           updated_at: string
+          upi_id: string | null
           user_id: string
         }
         Insert: {
+          account_name?: string | null
           avatar_url?: string | null
           coins?: number
           completed_tasks?: number
@@ -77,15 +81,18 @@ export type Database = {
           currency?: string | null
           email?: string
           id?: string
+          mobile_number?: string | null
           name?: string
           referral_code?: string | null
           referred_by?: string | null
           state?: string | null
           total_withdrawn?: number
           updated_at?: string
+          upi_id?: string | null
           user_id: string
         }
         Update: {
+          account_name?: string | null
           avatar_url?: string | null
           coins?: number
           completed_tasks?: number
@@ -94,12 +101,14 @@ export type Database = {
           currency?: string | null
           email?: string
           id?: string
+          mobile_number?: string | null
           name?: string
           referral_code?: string | null
           referred_by?: string | null
           state?: string | null
           total_withdrawn?: number
           updated_at?: string
+          upi_id?: string | null
           user_id?: string
         }
         Relationships: []

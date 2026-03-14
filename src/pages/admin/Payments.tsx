@@ -37,7 +37,7 @@ export default function AdminPayments() {
   useEffect(() => {
     fetchTransactions();
     const channel = supabase
-      .channel('admin-payments-changes')
+      .channel('admin-payments-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, () => fetchTransactions())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -45,32 +45,40 @@ export default function AdminPayments() {
 
   const handleApprove = async (txn: Transaction) => {
     setActionLoading(txn.id);
-    const { error } = await supabase.from('transactions').update({ status: 'approved' } as any).eq('id', txn.id);
-    if (error) toast.error('Failed: ' + error.message);
-    else toast.success(`Payment of ${txn.amount} coins approved for ${txn.user_name}`);
+    const { error } = await supabase
+      .from('transactions')
+      .update({ status: 'approved' } as any)
+      .eq('id', txn.id);
+    if (error) {
+      toast.error('Failed: ' + error.message);
+    } else {
+      toast.success(`Payment of ${txn.amount} coins approved for ${txn.user_name}`);
+    }
     await fetchTransactions();
     setActionLoading(null);
   };
 
   const handleReject = async (txn: Transaction) => {
     setActionLoading(txn.id);
-    // Reject the transaction
-    const { error } = await supabase.from('transactions').update({ status: 'rejected' } as any).eq('id', txn.id);
+    const { error } = await supabase
+      .from('transactions')
+      .update({ status: 'rejected' } as any)
+      .eq('id', txn.id);
     if (error) {
       toast.error('Failed: ' + error.message);
       setActionLoading(null);
       return;
     }
     // Refund coins back to user's wallet
-    const { data: profile } = await supabase
+    const { data: profileData } = await supabase
       .from('profiles')
       .select('coins, total_withdrawn')
       .eq('user_id', txn.user_id)
       .maybeSingle();
-    if (profile) {
+    if (profileData) {
       await supabase.from('profiles').update({
-        coins: (profile as any).coins + txn.amount,
-        total_withdrawn: Math.max(0, (profile as any).total_withdrawn - txn.amount),
+        coins: (profileData as any).coins + txn.amount,
+        total_withdrawn: Math.max(0, (profileData as any).total_withdrawn - txn.amount),
       } as any).eq('user_id', txn.user_id);
     }
     toast.success(`Payment rejected. ${txn.amount} coins refunded to ${txn.user_name}'s wallet`);
@@ -101,6 +109,7 @@ export default function AdminPayments() {
               Approve
             </Button>
             <Button size="sm" variant="destructive" disabled={actionLoading === txn.id} onClick={() => handleReject(txn)}>
+              {actionLoading === txn.id ? <Loader2 size={14} className="animate-spin mr-1" /> : null}
               Reject
             </Button>
           </div>
@@ -127,9 +136,15 @@ export default function AdminPayments() {
             <TabsTrigger value="approved" className="flex-1">Approved ({approved.length})</TabsTrigger>
             <TabsTrigger value="rejected" className="flex-1">Rejected ({rejected.length})</TabsTrigger>
           </TabsList>
-          <TabsContent value="requests" className="space-y-3 mt-4">{pending.length ? pending.map(t => <TxnCard key={t.id} txn={t} />) : <EmptyState />}</TabsContent>
-          <TabsContent value="approved" className="space-y-3 mt-4">{approved.length ? approved.map(t => <TxnCard key={t.id} txn={t} />) : <EmptyState />}</TabsContent>
-          <TabsContent value="rejected" className="space-y-3 mt-4">{rejected.length ? rejected.map(t => <TxnCard key={t.id} txn={t} />) : <EmptyState />}</TabsContent>
+          <TabsContent value="requests" className="space-y-3 mt-4">
+            {pending.length ? pending.map(t => <TxnCard key={t.id} txn={t} />) : <EmptyState />}
+          </TabsContent>
+          <TabsContent value="approved" className="space-y-3 mt-4">
+            {approved.length ? approved.map(t => <TxnCard key={t.id} txn={t} />) : <EmptyState />}
+          </TabsContent>
+          <TabsContent value="rejected" className="space-y-3 mt-4">
+            {rejected.length ? rejected.map(t => <TxnCard key={t.id} txn={t} />) : <EmptyState />}
+          </TabsContent>
         </Tabs>
       </main>
       <AdminBottomNav />

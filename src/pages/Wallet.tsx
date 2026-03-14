@@ -12,53 +12,109 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Coins, ArrowDownToLine, History } from 'lucide-react';
+import { Coins, ArrowDownToLine, History, Save, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function Wallet() {
-  const { user, profile, deductCoins } = useAuth();
+  const { user, profile, deductCoins, refreshProfile } = useAuth();
   const { settings } = useSettings();
-  const { transactions, addTransaction } = useTransactions();
+  const { transactions } = useTransactions();
   const { socialAds, videoAds } = useAds();
+  
+  // UPI details (saved permanently)
+  const [savedUpi, setSavedUpi] = useState('');
+  const [savedName, setSavedName] = useState('');
+  const [savedMobile, setSavedMobile] = useState('');
+  const [editingUpi, setEditingUpi] = useState(false);
   const [upiId, setUpiId] = useState('');
   const [accountName, setAccountName] = useState('');
+  const [mobileNumber, setMobileNumber] = useState('');
+  
+  // Withdrawal
+  const [withdrawAmount, setWithdrawAmount] = useState('');
   const [open, setOpen] = useState(false);
   const [showVideoAd, setShowVideoAd] = useState(false);
 
-  // Show video ad on wallet entry once ads are loaded
   useEffect(() => {
     if (videoAds.filter(a => a.page === 'wallet').length > 0) {
       setShowVideoAd(true);
     }
   }, [videoAds]);
 
+  // Load saved UPI details from profile
+  useEffect(() => {
+    if (!user) return;
+    const loadUpiDetails = async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('upi_id, account_name, mobile_number')
+        .eq('user_id', user.id)
+        .single();
+      if (data) {
+        setSavedUpi((data as any).upi_id || '');
+        setSavedName((data as any).account_name || '');
+        setSavedMobile((data as any).mobile_number || '');
+      }
+    };
+    loadUpiDetails();
+  }, [user]);
+
   if (!profile || !user) return null;
 
   const currencyAmount = (profile.coins * settings.coin_value).toFixed(2);
   const userTxns = transactions.filter(t => t.user_id === user.id);
+  const hasUpiSaved = savedUpi && savedName && savedMobile;
 
-  const handleWithdraw = async () => {
-    if (profile.coins < settings.min_withdrawal) {
-      toast.error(`Minimum withdrawal: ${settings.min_withdrawal} coins`);
-      return;
-    }
-    if (!upiId.trim() || !accountName.trim()) {
+  const handleSaveUpi = async () => {
+    if (!upiId.trim() || !accountName.trim() || !mobileNumber.trim()) {
       toast.error('Please fill all fields');
       return;
     }
-    await addTransaction({
-      user_id: user.id,
-      user_name: profile.name,
-      amount: profile.coins,
+    await supabase.from('profiles').update({
       upi_id: upiId,
       account_name: accountName,
+      mobile_number: mobileNumber,
+    } as any).eq('user_id', user.id);
+    setSavedUpi(upiId);
+    setSavedName(accountName);
+    setSavedMobile(mobileNumber);
+    setEditingUpi(false);
+    toast.success('UPI details saved!');
+  };
+
+  const handleWithdraw = async () => {
+    const amount = parseInt(withdrawAmount);
+    if (!amount || amount <= 0) {
+      toast.error('Please enter a valid amount');
+      return;
+    }
+    if (amount < settings.min_withdrawal) {
+      toast.error(`Minimum withdrawal: ${settings.min_withdrawal} coins`);
+      return;
+    }
+    if (amount > profile.coins) {
+      toast.error('Insufficient balance');
+      return;
+    }
+    if (!hasUpiSaved) {
+      toast.error('Please save your UPI details first');
+      return;
+    }
+
+    await supabase.from('transactions').insert({
+      user_id: user.id,
+      user_name: profile.name,
+      amount: amount,
+      upi_id: savedUpi,
+      account_name: savedName,
       status: 'pending',
       type: 'withdrawal',
-    });
-    await deductCoins(profile.coins);
+    } as any);
+    
+    await deductCoins(amount);
     setOpen(false);
-    setUpiId('');
-    setAccountName('');
+    setWithdrawAmount('');
     toast.success('Withdrawal request submitted!');
   };
 
@@ -73,6 +129,8 @@ export default function Wallet() {
       )}
       <main className="max-w-lg mx-auto px-4 py-6 space-y-6">
         <SocialAdBanner ads={socialAds} page="wallet" />
+        
+        {/* Balance Card */}
         <Card className="overflow-hidden">
           <div className="bg-gradient-to-br from-primary to-primary/70 p-6 text-primary-foreground text-center">
             <Coins size={36} className="mx-auto mb-2 opacity-90" />
@@ -81,30 +139,78 @@ export default function Wallet() {
               ≈ {settings.currency} {currencyAmount}
             </p>
           </div>
-          <CardContent className="p-4">
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button className="w-full gap-2">
-                  <ArrowDownToLine size={18} /> Withdraw
+        </Card>
+
+        {/* UPI Details Card */}
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-sm">Payment Details</h3>
+              {hasUpiSaved && !editingUpi && (
+                <Button variant="ghost" size="sm" onClick={() => {
+                  setUpiId(savedUpi);
+                  setAccountName(savedName);
+                  setMobileNumber(savedMobile);
+                  setEditingUpi(true);
+                }}>
+                  <Pencil size={14} className="mr-1" /> Edit
                 </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Withdraw Coins</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <Input placeholder="UPI ID (e.g. name@upi)" value={upiId} onChange={e => setUpiId(e.target.value)} />
-                  <Input placeholder="Account Holder Name" value={accountName} onChange={e => setAccountName(e.target.value)} />
-                  <p className="text-sm text-muted-foreground">
-                    Minimum: {settings.min_withdrawal} coins · Balance: {profile.coins} coins
-                  </p>
-                  <Button onClick={handleWithdraw} className="w-full">Submit Request</Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+              )}
+            </div>
+            
+            {hasUpiSaved && !editingUpi ? (
+              <div className="space-y-1 text-sm">
+                <p><span className="text-muted-foreground">UPI ID:</span> {savedUpi}</p>
+                <p><span className="text-muted-foreground">Name:</span> {savedName}</p>
+                <p><span className="text-muted-foreground">Mobile:</span> {savedMobile}</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Input placeholder="UPI ID (e.g. name@upi)" value={upiId} onChange={e => setUpiId(e.target.value)} />
+                <Input placeholder="Account Holder Name" value={accountName} onChange={e => setAccountName(e.target.value)} />
+                <Input placeholder="Mobile Number" value={mobileNumber} onChange={e => setMobileNumber(e.target.value)} />
+                <Button onClick={handleSaveUpi} className="w-full gap-2">
+                  <Save size={16} /> Save Details
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 
+        {/* Withdraw Button */}
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button className="w-full gap-2" disabled={!hasUpiSaved}>
+              <ArrowDownToLine size={18} /> {hasUpiSaved ? 'Withdraw' : 'Save UPI details first'}
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Withdraw Coins</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="text-sm text-muted-foreground space-y-1">
+                <p>UPI: {savedUpi}</p>
+                <p>Name: {savedName}</p>
+              </div>
+              <Input 
+                type="number" 
+                placeholder="Enter amount to withdraw" 
+                value={withdrawAmount} 
+                onChange={e => setWithdrawAmount(e.target.value)} 
+              />
+              <p className="text-sm text-muted-foreground">
+                Minimum: {settings.min_withdrawal} coins · Balance: {profile.coins} coins
+              </p>
+              {withdrawAmount && parseInt(withdrawAmount) > 0 && parseInt(withdrawAmount) < settings.min_withdrawal && (
+                <p className="text-sm text-destructive font-medium">Your amount is not enough for withdrawal</p>
+              )}
+              <Button onClick={handleWithdraw} className="w-full">Submit Request</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Transaction History */}
         <div>
           <h3 className="font-semibold mb-3 flex items-center gap-2">
             <History size={18} /> Transaction History
