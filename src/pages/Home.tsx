@@ -11,6 +11,7 @@ import { useRewards } from '@/hooks/useRewards';
 import { useAds } from '@/hooks/useAds';
 import { SocialAdBanner } from '@/components/AdBanner';
 import { VideoAdOverlay } from '@/components/VideoAdOverlay';
+import { ImageAdOverlay } from '@/components/ImageAdOverlay';
 import { toast } from 'sonner';
 
 function extractVideoId(url: string): string | null {
@@ -20,7 +21,6 @@ function extractVideoId(url: string): string | null {
   return match ? match[1] : null;
 }
 
-// Load YouTube IFrame API once globally
 let ytApiLoaded = false;
 let ytApiReady = false;
 const ytReadyCallbacks: (() => void)[] = [];
@@ -50,10 +50,12 @@ export default function Home() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isTheaterMode, setIsTheaterMode] = useState(false);
   const [showVideoAd, setShowVideoAd] = useState(false);
+  const [showImageAd, setShowImageAd] = useState(false);
+  const [imageAdShownAt, setImageAdShownAt] = useState(0);
   const { addCoins, profile } = useAuth();
   const { settings } = useSettings();
   const { updateWatchProgress } = useRewards();
-  const { socialAds, videoAds } = useAds();
+  const { socialAds, videoAds, imageAds, trackAdEvent } = useAds();
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
@@ -66,7 +68,6 @@ export default function Home() {
     if (!videoId) return;
 
     const initPlayer = () => {
-      // Destroy previous player
       if (playerRef.current) {
         try { playerRef.current.destroy(); } catch {}
         playerRef.current = null;
@@ -75,12 +76,7 @@ export default function Home() {
       playerRef.current = new (window as any).YT.Player(playerContainerId, {
         videoId,
         playerVars: {
-          autoplay: 1,
-          controls: 1,
-          rel: 0,
-          modestbranding: 1,
-          fs: 1,
-          playsinline: 1,
+          autoplay: 1, controls: 1, rel: 0, modestbranding: 1, fs: 1, playsinline: 1,
         },
         events: {
           onStateChange: (event: any) => {
@@ -88,7 +84,6 @@ export default function Home() {
             if (event.data === YT.PlayerState.PLAYING) {
               setIsWatching(true);
             } else {
-              // PAUSED, BUFFERING, ENDED, CUED — all stop timer
               setIsWatching(false);
             }
           },
@@ -106,12 +101,11 @@ export default function Home() {
     };
   }, [videoId]);
 
-  // Internal timer — runs only when video is playing
+  // Timer — runs only when video is playing
   useEffect(() => {
     if (isWatching && videoId) {
       timerRef.current = setInterval(() => {
         setWatchSeconds(prev => prev + 1);
-        // Update reward progress every second
         updateWatchProgress(1);
       }, 1000);
     } else if (timerRef.current) {
@@ -136,6 +130,25 @@ export default function Home() {
     }
   }, [watchSeconds, lastCreditedMinute, videoId, coinsPerMinute]);
 
+  // Show image ad every 10 minutes
+  useEffect(() => {
+    if (!isWatching || !videoId) return;
+    const minutesWatched = Math.floor(watchSeconds / 60);
+    const imageAdsForHome = imageAds.filter(a => a.page === 'home');
+    if (imageAdsForHome.length > 0 && minutesWatched > 0 && minutesWatched % 10 === 0 && minutesWatched !== imageAdShownAt) {
+      setImageAdShownAt(minutesWatched);
+      // Pause the youtube video
+      try { playerRef.current?.pauseVideo(); } catch {}
+      setShowImageAd(true);
+    }
+  }, [watchSeconds, isWatching, videoId, imageAds, imageAdShownAt]);
+
+  const handleImageAdComplete = () => {
+    setShowImageAd(false);
+    // Resume youtube video
+    try { playerRef.current?.playVideo(); } catch {}
+  };
+
   const handleSearch = () => {
     const id = extractVideoId(url);
     if (id) {
@@ -144,7 +157,12 @@ export default function Home() {
       setEarnedCoins(0);
       setLastCreditedMinute(0);
       setIsWatching(false);
-      if (videoAds.filter(a => a.page === 'home').length > 0) {
+      setImageAdShownAt(0);
+      // Show image ad before video starts
+      const homeImageAds = imageAds.filter(a => a.page === 'home');
+      if (homeImageAds.length > 0) {
+        setShowImageAd(true);
+      } else if (videoAds.filter(a => a.page === 'home').length > 0) {
         setShowVideoAd(true);
       }
     } else {
@@ -172,11 +190,13 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background pb-20">
       <Header />
+      {showImageAd && (
+        <ImageAdOverlay ads={imageAds} page="home" onComplete={handleImageAdComplete} trackEvent={trackAdEvent} />
+      )}
       {showVideoAd && (
-        <VideoAdOverlay ads={videoAds} page="home" onComplete={() => setShowVideoAd(false)} />
+        <VideoAdOverlay ads={videoAds} page="home" onComplete={() => setShowVideoAd(false)} trackEvent={trackAdEvent} />
       )}
       <main className={`mx-auto px-4 py-6 space-y-5 ${isTheaterMode ? 'max-w-4xl' : 'max-w-lg'}`}>
-        <SocialAdBanner ads={socialAds} page="home" />
         <Card className="border-primary/20 shadow-sm">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground mb-3 flex items-center gap-2">
@@ -222,7 +242,10 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Earnings card — no visible timer, only coins earned */}
+            {/* Social ads between video and earnings */}
+            <SocialAdBanner ads={socialAds} page="home" />
+
+            {/* Earnings card */}
             <Card className="overflow-hidden">
               <CardContent className="p-4 space-y-4">
                 <div className="flex items-center justify-between">

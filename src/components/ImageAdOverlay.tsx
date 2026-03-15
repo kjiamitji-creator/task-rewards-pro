@@ -1,24 +1,22 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Loader2 } from 'lucide-react';
-import type { VideoAd } from '@/hooks/useAds';
+import type { ImageAd } from '@/hooks/useAds';
 
 interface Props {
-  ads: VideoAd[];
+  ads: ImageAd[];
   page: string;
   onComplete: () => void;
   trackEvent?: (ad_id: string, ad_type: string, event_type: string, duration?: number, skippedAt?: number) => void;
 }
 
-export function VideoAdOverlay({ ads, page, onComplete, trackEvent }: Props) {
+export function ImageAdOverlay({ ads, page, onComplete, trackEvent }: Props) {
   const pageAds = ads.filter(ad => ad.page === page);
   const [currentAdIndex, setCurrentAdIndex] = useState(0);
   const [countdown, setCountdown] = useState(0);
   const [canClose, setCanClose] = useState(false);
   const [redirected, setRedirected] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isBuffering, setIsBuffering] = useState(true);
+  const [imageLoaded, setImageLoaded] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
   const watchedRef = useRef(0);
 
   const currentAd = pageAds[currentAdIndex];
@@ -31,11 +29,11 @@ export function VideoAdOverlay({ ads, page, onComplete, trackEvent }: Props) {
     setCountdown(currentAd.duration);
     setCanClose(false);
     setRedirected(false);
-    setIsPlaying(false);
-    setIsBuffering(true);
+    setImageLoaded(false);
     watchedRef.current = 0;
 
-    trackEvent?.(currentAd.id, 'video', 'view');
+    // Track view
+    trackEvent?.(currentAd.id, 'image', 'view');
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -43,7 +41,7 @@ export function VideoAdOverlay({ ads, page, onComplete, trackEvent }: Props) {
   }, [currentAdIndex, currentAd]);
 
   useEffect(() => {
-    if (isPlaying && countdown > 0) {
+    if (imageLoaded && countdown > 0) {
       timerRef.current = setInterval(() => {
         watchedRef.current += 1;
         setCountdown(prev => {
@@ -55,13 +53,11 @@ export function VideoAdOverlay({ ads, page, onComplete, trackEvent }: Props) {
           return prev - 1;
         });
       }, 1000);
-    } else if (timerRef.current) {
-      clearInterval(timerRef.current);
     }
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [isPlaying, countdown]);
+  }, [imageLoaded, countdown]);
 
   if (!currentAd || pageAds.length === 0) return null;
 
@@ -69,9 +65,10 @@ export function VideoAdOverlay({ ads, page, onComplete, trackEvent }: Props) {
     if (!redirected && currentAd.redirect_link) {
       window.open(currentAd.redirect_link, '_blank');
       setRedirected(true);
-      trackEvent?.(currentAd.id, 'video', 'click', watchedRef.current);
+      trackEvent?.(currentAd.id, 'image', 'click', watchedRef.current);
     } else {
-      trackEvent?.(currentAd.id, 'video', 'complete', watchedRef.current);
+      // Track duration watched
+      trackEvent?.(currentAd.id, 'image', 'complete', watchedRef.current);
       if (currentAdIndex < pageAds.length - 1) {
         setCurrentAdIndex(prev => prev + 1);
       } else {
@@ -80,42 +77,23 @@ export function VideoAdOverlay({ ads, page, onComplete, trackEvent }: Props) {
     }
   };
 
-  const handleCanPlay = () => {
-    setIsBuffering(false);
-    videoRef.current?.play().catch(() => {});
-  };
-
-  const handlePlay = () => setIsPlaying(true);
-  const handlePause = () => setIsPlaying(false);
-  const handleEnded = () => {
-    setIsPlaying(false);
-    setCanClose(true);
-    setCountdown(0);
-  };
-
   return (
     <div className="fixed inset-0 z-50 bg-black flex items-center justify-center">
       <div className="relative w-full h-full flex items-center justify-center">
-        <video
-          ref={videoRef}
-          src={currentAd.video_url}
-          className="max-w-full max-h-full w-full h-full object-contain"
-          autoPlay
-          playsInline
-          onCanPlayThrough={handleCanPlay}
-          onPlay={handlePlay}
-          onPause={handlePause}
-          onEnded={handleEnded}
-          onWaiting={() => setIsBuffering(true)}
-          onPlaying={() => setIsBuffering(false)}
-        />
-
-        {isBuffering && (
+        {!imageLoaded && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/60">
             <Loader2 size={48} className="text-white animate-spin" />
           </div>
         )}
 
+        <img
+          src={currentAd.image_url}
+          alt="Advertisement"
+          className="max-w-full max-h-full w-full h-full object-contain"
+          onLoad={() => setImageLoaded(true)}
+        />
+
+        {/* Top-right: timer + cut button */}
         <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
           {countdown > 0 && (
             <span className="bg-black/70 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm">
@@ -133,7 +111,8 @@ export function VideoAdOverlay({ ads, page, onComplete, trackEvent }: Props) {
           )}
         </div>
 
-        {!canClose && !isBuffering && (
+        {/* Bottom hint */}
+        {!canClose && imageLoaded && (
           <p className="absolute bottom-4 left-0 right-0 text-center text-white/50 text-xs">
             Ad will end in {countdown}s
           </p>

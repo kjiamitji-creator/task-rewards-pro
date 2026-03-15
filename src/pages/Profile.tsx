@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 
 export default function Profile() {
   const { profile, updateProfile, logout } = useAuth();
-  const { socialAds, videoAds } = useAds();
+  const { socialAds, videoAds, trackAdEvent } = useAds();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(profile?.name || '');
   const [state, setState] = useState(profile?.state || '');
@@ -45,10 +45,10 @@ export default function Profile() {
     <div className="min-h-screen bg-background pb-20">
       <Header />
       {showVideoAd && (
-        <VideoAdOverlay ads={videoAds} page="profile" onComplete={() => setShowVideoAd(false)} />
+        <VideoAdOverlay ads={videoAds} page="profile" onComplete={() => setShowVideoAd(false)} trackEvent={trackAdEvent} />
       )}
       <main className="max-w-lg mx-auto px-4 py-6 space-y-6">
-        <SocialAdBanner ads={socialAds} page="profile" />
+        {/* Social ads displayed in center of profile */}
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-4 mb-6">
@@ -87,9 +87,7 @@ export default function Profile() {
                 </Button>
               </DialogTrigger>
               <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Edit Profile</DialogTitle>
-                </DialogHeader>
+                <DialogHeader><DialogTitle>Edit Profile</DialogTitle></DialogHeader>
                 <div className="space-y-4">
                   <Input placeholder="Full Name" value={name} onChange={e => setName(e.target.value)} />
                   <Input placeholder="State" value={state} onChange={e => setState(e.target.value)} />
@@ -101,34 +99,29 @@ export default function Profile() {
           </CardContent>
         </Card>
 
+        {/* Social Ads in center */}
+        <SocialAdBanner ads={socialAds} page="profile" />
+
         <Card>
           <CardContent className="p-6">
             <h3 className="font-semibold mb-4 flex items-center gap-2">
               <Share2 size={18} /> Referral Program
             </h3>
             <div className="space-y-4">
-              {/* Referral Code */}
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Your Referral Code</p>
                 <div className="flex items-center gap-2">
                   <Input value={profile.referral_code} readOnly className="font-mono text-lg font-bold" />
-                  <Button variant="outline" size="icon" onClick={copyReferralCode} title="Copy code">
-                    <Copy size={16} />
-                  </Button>
+                  <Button variant="outline" size="icon" onClick={copyReferralCode}><Copy size={16} /></Button>
                 </div>
               </div>
-
-              {/* Referral Link */}
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Your Referral Link</p>
                 <div className="flex items-center gap-2">
                   <Input value={referralLink} readOnly className="text-xs" />
-                  <Button variant="outline" size="icon" onClick={copyReferralLink} title="Copy link">
-                    <LinkIcon size={16} />
-                  </Button>
+                  <Button variant="outline" size="icon" onClick={copyReferralLink}><LinkIcon size={16} /></Button>
                 </div>
               </div>
-
               <div className="flex items-center gap-3 bg-primary/5 rounded-lg p-3">
                 <Trophy size={20} className="text-primary" />
                 <div>
@@ -140,9 +133,7 @@ export default function Profile() {
           </CardContent>
         </Card>
 
-        <Button variant="destructive" className="w-full" onClick={() => logout()}>
-          Logout
-        </Button>
+        <Button variant="destructive" className="w-full" onClick={() => logout()}>Logout</Button>
       </main>
       <BottomNav />
     </div>
