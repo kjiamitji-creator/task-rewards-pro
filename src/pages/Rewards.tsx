@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Gift, Trophy, Clock, Coins, Check } from 'lucide-react';
 import Header from '@/components/Header';
 import BottomNav from '@/components/BottomNav';
@@ -5,17 +6,44 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useRewards } from '@/hooks/useRewards';
+import { useAds } from '@/hooks/useAds';
+import { VideoAdOverlay } from '@/components/VideoAdOverlay';
 import { toast } from 'sonner';
 
 export default function Rewards() {
   const { rewards, progress, loading, claimReward } = useRewards();
+  const { videoAds, trackAdEvent } = useAds();
+  const [showVideoAd, setShowVideoAd] = useState(false);
+  const [pendingClaimId, setPendingClaimId] = useState<string | null>(null);
+  const [pendingClaimCoins, setPendingClaimCoins] = useState(0);
 
   const handleClaim = async (rewardId: string, coins: number) => {
+    // Check if video ads exist for rewards page
+    const rewardVideoAds = videoAds.filter(a => a.page === 'rewards');
+    if (rewardVideoAds.length > 0) {
+      setPendingClaimId(rewardId);
+      setPendingClaimCoins(coins);
+      setShowVideoAd(true);
+      return;
+    }
+    await executeClaim(rewardId, coins);
+  };
+
+  const executeClaim = async (rewardId: string, coins: number) => {
     const success = await claimReward(rewardId);
     if (success) {
       toast.success(`🎉 ${coins} coins claimed and added to your wallet!`);
     } else {
       toast.error('Could not claim reward');
+    }
+  };
+
+  const handleVideoAdComplete = async () => {
+    setShowVideoAd(false);
+    if (pendingClaimId) {
+      await executeClaim(pendingClaimId, pendingClaimCoins);
+      setPendingClaimId(null);
+      setPendingClaimCoins(0);
     }
   };
 
@@ -38,8 +66,10 @@ export default function Rewards() {
   return (
     <div className="min-h-screen bg-background pb-20">
       <Header />
+      {showVideoAd && (
+        <VideoAdOverlay ads={videoAds} page="rewards" onComplete={handleVideoAdComplete} trackEvent={trackAdEvent} />
+      )}
       <main className="max-w-lg mx-auto px-4 py-6 space-y-5">
-        {/* Hero */}
         <div className="text-center space-y-2">
           <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
             <Trophy size={32} className="text-primary" />
@@ -86,22 +116,15 @@ export default function Rewards() {
                   }`}
                 >
                   <CardContent className="p-5 space-y-4">
-                    {/* Top row */}
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
                           isClaimed ? 'bg-green-500/10' : 'bg-primary/10'
                         }`}>
-                          {isClaimed ? (
-                            <Check size={20} className="text-green-500" />
-                          ) : (
-                            <Gift size={20} className="text-primary" />
-                          )}
+                          {isClaimed ? <Check size={20} className="text-green-500" /> : <Gift size={20} className="text-primary" />}
                         </div>
                         <div>
-                          <p className="font-semibold text-sm">
-                            Watch {formatTime(reward.watch_time_minutes)}
-                          </p>
+                          <p className="font-semibold text-sm">Watch {formatTime(reward.watch_time_minutes)}</p>
                           <div className="flex items-center gap-1 mt-0.5">
                             <Clock size={12} className="text-muted-foreground" />
                             <span className="text-xs text-muted-foreground">
@@ -116,7 +139,6 @@ export default function Rewards() {
                       </div>
                     </div>
 
-                    {/* Progress bar */}
                     <div className="space-y-1.5">
                       <Progress value={percentage} className="h-3" />
                       <div className="flex justify-between text-xs text-muted-foreground">
@@ -127,19 +149,13 @@ export default function Rewards() {
                       </div>
                     </div>
 
-                    {/* Claim button */}
                     {isClaimed ? (
                       <div className="flex items-center justify-center gap-2 py-2 rounded-lg bg-green-500/10 text-green-600 text-sm font-medium">
-                        <Check size={16} />
-                        Claimed!
+                        <Check size={16} /> Claimed!
                       </div>
                     ) : isComplete ? (
-                      <Button
-                        onClick={() => handleClaim(reward.id, reward.coin_amount)}
-                        className="w-full gap-2 animate-pulse"
-                      >
-                        <Gift size={16} />
-                        Claim {reward.coin_amount} Coins
+                      <Button onClick={() => handleClaim(reward.id, reward.coin_amount)} className="w-full gap-2 animate-pulse">
+                        <Gift size={16} /> Claim {reward.coin_amount} Coins
                       </Button>
                     ) : null}
                   </CardContent>

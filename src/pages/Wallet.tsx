@@ -20,9 +20,8 @@ export default function Wallet() {
   const { user, profile, deductCoins, refreshProfile } = useAuth();
   const { settings } = useSettings();
   const { transactions } = useTransactions();
-  const { socialAds, videoAds } = useAds();
+  const { socialAds, videoAds, trackAdEvent } = useAds();
   
-  // UPI details (saved permanently)
   const [savedUpi, setSavedUpi] = useState('');
   const [savedName, setSavedName] = useState('');
   const [savedMobile, setSavedMobile] = useState('');
@@ -31,10 +30,10 @@ export default function Wallet() {
   const [accountName, setAccountName] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
   
-  // Withdrawal
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [open, setOpen] = useState(false);
   const [showVideoAd, setShowVideoAd] = useState(false);
+  const [pendingWithdraw, setPendingWithdraw] = useState(false);
 
   useEffect(() => {
     if (videoAds.filter(a => a.page === 'wallet').length > 0) {
@@ -42,7 +41,6 @@ export default function Wallet() {
     }
   }, [videoAds]);
 
-  // Load saved UPI details from profile
   useEffect(() => {
     if (!user) return;
     const loadUpiDetails = async () => {
@@ -72,9 +70,7 @@ export default function Wallet() {
       return;
     }
     await supabase.from('profiles').update({
-      upi_id: upiId,
-      account_name: accountName,
-      mobile_number: mobileNumber,
+      upi_id: upiId, account_name: accountName, mobile_number: mobileNumber,
     } as any).eq('user_id', user.id);
     setSavedUpi(upiId);
     setSavedName(accountName);
@@ -85,37 +81,40 @@ export default function Wallet() {
 
   const handleWithdraw = async () => {
     const amount = parseInt(withdrawAmount);
-    if (!amount || amount <= 0) {
-      toast.error('Please enter a valid amount');
-      return;
-    }
-    if (amount < settings.min_withdrawal) {
-      toast.error(`Minimum withdrawal: ${settings.min_withdrawal} coins`);
-      return;
-    }
-    if (amount > profile.coins) {
-      toast.error('Insufficient balance');
-      return;
-    }
-    if (!hasUpiSaved) {
-      toast.error('Please save your UPI details first');
+    if (!amount || amount <= 0) { toast.error('Enter a valid amount'); return; }
+    if (amount < settings.min_withdrawal) { toast.error(`Minimum withdrawal: ${settings.min_withdrawal} coins`); return; }
+    if (amount > profile.coins) { toast.error('Insufficient balance'); return; }
+    if (!hasUpiSaved) { toast.error('Save your UPI details first'); return; }
+
+    // Show video ad before withdrawal if available
+    const walletVideoAds = videoAds.filter(a => a.page === 'wallet');
+    if (walletVideoAds.length > 0 && !pendingWithdraw) {
+      setPendingWithdraw(true);
+      setShowVideoAd(true);
       return;
     }
 
+    await executeWithdraw(amount);
+  };
+
+  const executeWithdraw = async (amount?: number) => {
+    const amt = amount || parseInt(withdrawAmount);
     await supabase.from('transactions').insert({
-      user_id: user.id,
-      user_name: profile.name,
-      amount: amount,
-      upi_id: savedUpi,
-      account_name: savedName,
-      status: 'pending',
-      type: 'withdrawal',
+      user_id: user.id, user_name: profile.name, amount: amt,
+      upi_id: savedUpi, account_name: savedName, status: 'pending', type: 'withdrawal',
     } as any);
-    
-    await deductCoins(amount);
+    await deductCoins(amt);
     setOpen(false);
     setWithdrawAmount('');
+    setPendingWithdraw(false);
     toast.success('Withdrawal request submitted!');
+  };
+
+  const handleVideoAdComplete = () => {
+    setShowVideoAd(false);
+    if (pendingWithdraw) {
+      executeWithdraw();
+    }
   };
 
   const statusVariant = (s: string) =>
@@ -125,39 +124,31 @@ export default function Wallet() {
     <div className="min-h-screen bg-background pb-20">
       <Header />
       {showVideoAd && (
-        <VideoAdOverlay ads={videoAds} page="wallet" onComplete={() => setShowVideoAd(false)} />
+        <VideoAdOverlay ads={videoAds} page="wallet" onComplete={handleVideoAdComplete} trackEvent={trackAdEvent} />
       )}
       <main className="max-w-lg mx-auto px-4 py-6 space-y-6">
         <SocialAdBanner ads={socialAds} page="wallet" />
         
-        {/* Balance Card */}
         <Card className="overflow-hidden">
           <div className="bg-gradient-to-br from-primary to-primary/70 p-6 text-primary-foreground text-center">
             <Coins size={36} className="mx-auto mb-2 opacity-90" />
             <p className="text-4xl font-bold">{profile.coins}</p>
-            <p className="text-sm opacity-80 mt-1">
-              ≈ {settings.currency} {currencyAmount}
-            </p>
+            <p className="text-sm opacity-80 mt-1">≈ {settings.currency} {currencyAmount}</p>
           </div>
         </Card>
 
-        {/* UPI Details Card */}
         <Card>
           <CardContent className="p-4 space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-sm">Payment Details</h3>
               {hasUpiSaved && !editingUpi && (
                 <Button variant="ghost" size="sm" onClick={() => {
-                  setUpiId(savedUpi);
-                  setAccountName(savedName);
-                  setMobileNumber(savedMobile);
-                  setEditingUpi(true);
+                  setUpiId(savedUpi); setAccountName(savedName); setMobileNumber(savedMobile); setEditingUpi(true);
                 }}>
                   <Pencil size={14} className="mr-1" /> Edit
                 </Button>
               )}
             </div>
-            
             {hasUpiSaved && !editingUpi ? (
               <div className="space-y-1 text-sm">
                 <p><span className="text-muted-foreground">UPI ID:</span> {savedUpi}</p>
@@ -169,15 +160,12 @@ export default function Wallet() {
                 <Input placeholder="UPI ID (e.g. name@upi)" value={upiId} onChange={e => setUpiId(e.target.value)} />
                 <Input placeholder="Account Holder Name" value={accountName} onChange={e => setAccountName(e.target.value)} />
                 <Input placeholder="Mobile Number" value={mobileNumber} onChange={e => setMobileNumber(e.target.value)} />
-                <Button onClick={handleSaveUpi} className="w-full gap-2">
-                  <Save size={16} /> Save Details
-                </Button>
+                <Button onClick={handleSaveUpi} className="w-full gap-2"><Save size={16} /> Save Details</Button>
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Withdraw Button */}
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button className="w-full gap-2" disabled={!hasUpiSaved}>
@@ -185,20 +173,13 @@ export default function Wallet() {
             </Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Withdraw Coins</DialogTitle>
-            </DialogHeader>
+            <DialogHeader><DialogTitle>Withdraw Coins</DialogTitle></DialogHeader>
             <div className="space-y-4">
               <div className="text-sm text-muted-foreground space-y-1">
                 <p>UPI: {savedUpi}</p>
                 <p>Name: {savedName}</p>
               </div>
-              <Input 
-                type="number" 
-                placeholder="Enter amount to withdraw" 
-                value={withdrawAmount} 
-                onChange={e => setWithdrawAmount(e.target.value)} 
-              />
+              <Input type="number" placeholder="Enter amount" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} />
               <p className="text-sm text-muted-foreground">
                 Minimum: {settings.min_withdrawal} coins · Balance: {profile.coins} coins
               </p>
@@ -210,11 +191,8 @@ export default function Wallet() {
           </DialogContent>
         </Dialog>
 
-        {/* Transaction History */}
         <div>
-          <h3 className="font-semibold mb-3 flex items-center gap-2">
-            <History size={18} /> Transaction History
-          </h3>
+          <h3 className="font-semibold mb-3 flex items-center gap-2"><History size={18} /> Transaction History</h3>
           {userTxns.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <History size={40} className="mx-auto mb-3 opacity-30" />
@@ -227,9 +205,7 @@ export default function Wallet() {
                   <CardContent className="p-4 flex justify-between items-center">
                     <div>
                       <p className="font-semibold">{t.amount} coins</p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(t.created_at).toLocaleDateString()} · {t.upi_id}
-                      </p>
+                      <p className="text-xs text-muted-foreground">{new Date(t.created_at).toLocaleDateString()} · {t.upi_id}</p>
                     </div>
                     <Badge variant={statusVariant(t.status)}>{t.status}</Badge>
                   </CardContent>

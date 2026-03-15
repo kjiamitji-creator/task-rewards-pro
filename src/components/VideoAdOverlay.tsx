@@ -6,9 +6,10 @@ interface Props {
   ads: VideoAd[];
   page: string;
   onComplete: () => void;
+  trackEvent?: (ad_id: string, ad_type: string, event_type: string, duration?: number, skippedAt?: number) => void;
 }
 
-export function VideoAdOverlay({ ads, page, onComplete }: Props) {
+export function VideoAdOverlay({ ads, page, onComplete, trackEvent }: Props) {
   const pageAds = ads.filter(ad => ad.page === page);
   const [currentAdIndex, setCurrentAdIndex] = useState(0);
   const [countdown, setCountdown] = useState(0);
@@ -18,10 +19,10 @@ export function VideoAdOverlay({ ads, page, onComplete }: Props) {
   const [isBuffering, setIsBuffering] = useState(true);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const watchedRef = useRef(0);
 
   const currentAd = pageAds[currentAdIndex];
 
-  // Reset state when ad changes
   useEffect(() => {
     if (!currentAd) {
       onComplete();
@@ -32,16 +33,19 @@ export function VideoAdOverlay({ ads, page, onComplete }: Props) {
     setRedirected(false);
     setIsPlaying(false);
     setIsBuffering(true);
+    watchedRef.current = 0;
+
+    trackEvent?.(currentAd.id, 'video', 'view');
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [currentAdIndex, currentAd]);
 
-  // Timer runs ONLY when video is actually playing
   useEffect(() => {
     if (isPlaying && countdown > 0) {
       timerRef.current = setInterval(() => {
+        watchedRef.current += 1;
         setCountdown(prev => {
           if (prev <= 1) {
             clearInterval(timerRef.current!);
@@ -63,11 +67,11 @@ export function VideoAdOverlay({ ads, page, onComplete }: Props) {
 
   const handleCutClick = () => {
     if (!redirected && currentAd.redirect_link) {
-      // First click → open redirect link
       window.open(currentAd.redirect_link, '_blank');
       setRedirected(true);
+      trackEvent?.(currentAd.id, 'video', 'click', watchedRef.current);
     } else {
-      // Second click (or no redirect link) → close/next ad
+      trackEvent?.(currentAd.id, 'video', 'complete', watchedRef.current);
       if (currentAdIndex < pageAds.length - 1) {
         setCurrentAdIndex(prev => prev + 1);
       } else {
@@ -92,7 +96,6 @@ export function VideoAdOverlay({ ads, page, onComplete }: Props) {
   return (
     <div className="fixed inset-0 z-50 bg-black flex items-center justify-center">
       <div className="relative w-full h-full flex items-center justify-center">
-        {/* Video fills screen while maintaining aspect ratio */}
         <video
           ref={videoRef}
           src={currentAd.video_url}
@@ -107,14 +110,12 @@ export function VideoAdOverlay({ ads, page, onComplete }: Props) {
           onPlaying={() => setIsBuffering(false)}
         />
 
-        {/* Buffering indicator */}
         {isBuffering && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/60">
             <Loader2 size={48} className="text-white animate-spin" />
           </div>
         )}
 
-        {/* Top-right: timer + cut button */}
         <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
           {countdown > 0 && (
             <span className="bg-black/70 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm">
@@ -132,7 +133,6 @@ export function VideoAdOverlay({ ads, page, onComplete }: Props) {
           )}
         </div>
 
-        {/* Bottom hint */}
         {!canClose && !isBuffering && (
           <p className="absolute bottom-4 left-0 right-0 text-center text-white/50 text-xs">
             Ad will end in {countdown}s
