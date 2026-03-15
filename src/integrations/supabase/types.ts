@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      ad_analytics: {
+        Row: {
+          ad_id: string
+          ad_type: string
+          created_at: string
+          duration_watched: number | null
+          event_type: string
+          id: string
+          skipped_at: number | null
+        }
+        Insert: {
+          ad_id: string
+          ad_type?: string
+          created_at?: string
+          duration_watched?: number | null
+          event_type?: string
+          id?: string
+          skipped_at?: number | null
+        }
+        Update: {
+          ad_id?: string
+          ad_type?: string
+          created_at?: string
+          duration_watched?: number | null
+          event_type?: string
+          id?: string
+          skipped_at?: number | null
+        }
+        Relationships: []
+      }
       app_settings: {
         Row: {
           admin_email: string
@@ -47,6 +77,39 @@ export type Database = {
           min_withdrawal?: number
           updated_at?: string
           website_name?: string
+        }
+        Relationships: []
+      }
+      image_ads: {
+        Row: {
+          active: boolean
+          created_at: string
+          duration: number
+          frozen_until: string | null
+          id: string
+          image_url: string
+          page: string
+          redirect_link: string | null
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          duration?: number
+          frozen_until?: string | null
+          id?: string
+          image_url: string
+          page?: string
+          redirect_link?: string | null
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          duration?: number
+          frozen_until?: string | null
+          id?: string
+          image_url?: string
+          page?: string
+          redirect_link?: string | null
         }
         Relationships: []
       }
