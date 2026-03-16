@@ -5,7 +5,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/hooks/useSettings';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useAds } from '@/hooks/useAds';
-import { SocialAdBanner } from '@/components/AdBanner';
 import { VideoAdOverlay } from '@/components/VideoAdOverlay';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,7 +19,7 @@ export default function Wallet() {
   const { user, profile, deductCoins, refreshProfile } = useAuth();
   const { settings } = useSettings();
   const { transactions } = useTransactions();
-  const { socialAds, videoAds, trackAdEvent } = useAds();
+  const { videoAds, trackAdEvent } = useAds();
   
   const [savedUpi, setSavedUpi] = useState('');
   const [savedName, setSavedName] = useState('');
@@ -36,12 +35,6 @@ export default function Wallet() {
   const [pendingWithdraw, setPendingWithdraw] = useState(false);
 
   useEffect(() => {
-    if (videoAds.filter(a => a.page === 'wallet').length > 0) {
-      setShowVideoAd(true);
-    }
-  }, [videoAds]);
-
-  useEffect(() => {
     if (!user) return;
     const loadUpiDetails = async () => {
       const { data } = await supabase
@@ -50,9 +43,9 @@ export default function Wallet() {
         .eq('user_id', user.id)
         .single();
       if (data) {
-        setSavedUpi((data as any).upi_id || '');
-        setSavedName((data as any).account_name || '');
-        setSavedMobile((data as any).mobile_number || '');
+        setSavedUpi(data.upi_id || '');
+        setSavedName(data.account_name || '');
+        setSavedMobile(data.mobile_number || '');
       }
     };
     loadUpiDetails();
@@ -71,7 +64,7 @@ export default function Wallet() {
     }
     await supabase.from('profiles').update({
       upi_id: upiId, account_name: accountName, mobile_number: mobileNumber,
-    } as any).eq('user_id', user.id);
+    }).eq('user_id', user.id);
     setSavedUpi(upiId);
     setSavedName(accountName);
     setSavedMobile(mobileNumber);
@@ -102,7 +95,7 @@ export default function Wallet() {
     await supabase.from('transactions').insert({
       user_id: user.id, user_name: profile.name, amount: amt,
       upi_id: savedUpi, account_name: savedName, status: 'pending', type: 'withdrawal',
-    } as any);
+    });
     await deductCoins(amt);
     setOpen(false);
     setWithdrawAmount('');
@@ -127,8 +120,6 @@ export default function Wallet() {
         <VideoAdOverlay ads={videoAds} page="wallet" onComplete={handleVideoAdComplete} trackEvent={trackAdEvent} />
       )}
       <main className="max-w-lg mx-auto px-4 py-6 space-y-6">
-        <SocialAdBanner ads={socialAds} page="wallet" />
-        
         <Card className="overflow-hidden">
           <div className="bg-gradient-to-br from-primary to-primary/70 p-6 text-primary-foreground text-center">
             <Coins size={36} className="mx-auto mb-2 opacity-90" />
