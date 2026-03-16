@@ -10,7 +10,8 @@ import { useSettings } from '@/hooks/useSettings';
 import { useRewards } from '@/hooks/useRewards';
 import { useAds } from '@/hooks/useAds';
 import { SocialAdBanner } from '@/components/AdBanner';
-import { ImageAdOverlay } from '@/components/ImageAdOverlay';
+import { ImageAdOverlay, preloadImageAds } from '@/components/ImageAdOverlay';
+import { preloadVideoAds } from '@/components/VideoAdOverlay';
 import { toast } from 'sonner';
 
 function extractVideoId(url: string): string | null {
