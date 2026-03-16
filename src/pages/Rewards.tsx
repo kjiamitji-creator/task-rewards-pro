@@ -17,6 +17,10 @@ export default function Rewards() {
   const [pendingClaimId, setPendingClaimId] = useState<string | null>(null);
   const [pendingClaimCoins, setPendingClaimCoins] = useState(0);
 
+  useEffect(() => {
+    if (videoAds.length > 0) preloadVideoAds(videoAds);
+  }, [videoAds]);
+
   const handleClaim = async (rewardId: string, coins: number) => {
     // Check if video ads exist for rewards page
     const rewardVideoAds = videoAds.filter(a => a.page === 'rewards');

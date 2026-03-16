@@ -35,6 +35,10 @@ export default function Wallet() {
   const [pendingWithdraw, setPendingWithdraw] = useState(false);
 
   useEffect(() => {
+    if (videoAds.length > 0) preloadVideoAds(videoAds);
+  }, [videoAds]);
+
+  useEffect(() => {
     if (!user) return;
     const loadUpiDetails = async () => {
       const { data } = await supabase
