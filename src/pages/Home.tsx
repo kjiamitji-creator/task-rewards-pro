@@ -10,7 +10,6 @@ import { useSettings } from '@/hooks/useSettings';
 import { useRewards } from '@/hooks/useRewards';
 import { useAds } from '@/hooks/useAds';
 import { SocialAdBanner } from '@/components/AdBanner';
-import { VideoAdOverlay } from '@/components/VideoAdOverlay';
 import { ImageAdOverlay } from '@/components/ImageAdOverlay';
 import { toast } from 'sonner';
 
@@ -49,13 +48,12 @@ export default function Home() {
   const [isWatching, setIsWatching] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isTheaterMode, setIsTheaterMode] = useState(false);
-  const [showVideoAd, setShowVideoAd] = useState(false);
   const [showImageAd, setShowImageAd] = useState(false);
   const [imageAdShownAt, setImageAdShownAt] = useState(0);
   const { addCoins, profile } = useAuth();
   const { settings } = useSettings();
   const { updateWatchProgress } = useRewards();
-  const { socialAds, videoAds, imageAds, trackAdEvent } = useAds();
+  const { socialAds, imageAds, trackAdEvent } = useAds();
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
@@ -137,7 +135,6 @@ export default function Home() {
     const imageAdsForHome = imageAds.filter(a => a.page === 'home');
     if (imageAdsForHome.length > 0 && minutesWatched > 0 && minutesWatched % 10 === 0 && minutesWatched !== imageAdShownAt) {
       setImageAdShownAt(minutesWatched);
-      // Pause the youtube video
       try { playerRef.current?.pauseVideo(); } catch {}
       setShowImageAd(true);
     }
@@ -145,7 +142,6 @@ export default function Home() {
 
   const handleImageAdComplete = () => {
     setShowImageAd(false);
-    // Resume youtube video
     try { playerRef.current?.playVideo(); } catch {}
   };
 
@@ -162,8 +158,6 @@ export default function Home() {
       const homeImageAds = imageAds.filter(a => a.page === 'home');
       if (homeImageAds.length > 0) {
         setShowImageAd(true);
-      } else if (videoAds.filter(a => a.page === 'home').length > 0) {
-        setShowVideoAd(true);
       }
     } else {
       toast.error('Please enter a valid YouTube URL');
@@ -192,9 +186,6 @@ export default function Home() {
       <Header />
       {showImageAd && (
         <ImageAdOverlay ads={imageAds} page="home" onComplete={handleImageAdComplete} trackEvent={trackAdEvent} />
-      )}
-      {showVideoAd && (
-        <VideoAdOverlay ads={videoAds} page="home" onComplete={() => setShowVideoAd(false)} trackEvent={trackAdEvent} />
       )}
       <main className={`mx-auto px-4 py-6 space-y-5 ${isTheaterMode ? 'max-w-4xl' : 'max-w-lg'}`}>
         <Card className="border-primary/20 shadow-sm">
@@ -242,7 +233,7 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Social ads between video and earnings */}
+            {/* Social ads only below video player */}
             <SocialAdBanner ads={socialAds} page="home" />
 
             {/* Earnings card */}
