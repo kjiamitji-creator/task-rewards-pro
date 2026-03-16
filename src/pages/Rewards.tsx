@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Gift, Trophy, Clock, Coins, Check } from 'lucide-react';
 import Header from '@/components/Header';
 import BottomNav from '@/components/BottomNav';
@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useRewards } from '@/hooks/useRewards';
 import { useAds } from '@/hooks/useAds';
-import { VideoAdOverlay } from '@/components/VideoAdOverlay';
+import { VideoAdOverlay, preloadVideoAds } from '@/components/VideoAdOverlay';
 import { toast } from 'sonner';
 
 export default function Rewards() {
@@ -16,6 +16,10 @@ export default function Rewards() {
   const [showVideoAd, setShowVideoAd] = useState(false);
   const [pendingClaimId, setPendingClaimId] = useState<string | null>(null);
   const [pendingClaimCoins, setPendingClaimCoins] = useState(0);
+
+  useEffect(() => {
+    if (videoAds.length > 0) preloadVideoAds(videoAds);
+  }, [videoAds]);
 
   const handleClaim = async (rewardId: string, coins: number) => {
     // Check if video ads exist for rewards page

@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/hooks/useSettings';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useAds } from '@/hooks/useAds';
-import { VideoAdOverlay } from '@/components/VideoAdOverlay';
+import { VideoAdOverlay, preloadVideoAds } from '@/components/VideoAdOverlay';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -33,6 +33,10 @@ export default function Wallet() {
   const [open, setOpen] = useState(false);
   const [showVideoAd, setShowVideoAd] = useState(false);
   const [pendingWithdraw, setPendingWithdraw] = useState(false);
+
+  useEffect(() => {
+    if (videoAds.length > 0) preloadVideoAds(videoAds);
+  }, [videoAds]);
 
   useEffect(() => {
     if (!user) return;

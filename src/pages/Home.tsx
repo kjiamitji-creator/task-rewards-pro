@@ -10,7 +10,8 @@ import { useSettings } from '@/hooks/useSettings';
 import { useRewards } from '@/hooks/useRewards';
 import { useAds } from '@/hooks/useAds';
 import { SocialAdBanner } from '@/components/AdBanner';
-import { ImageAdOverlay } from '@/components/ImageAdOverlay';
+import { ImageAdOverlay, preloadImageAds } from '@/components/ImageAdOverlay';
+import { preloadVideoAds } from '@/components/VideoAdOverlay';
 import { toast } from 'sonner';
 
 function extractVideoId(url: string): string | null {
@@ -60,6 +61,11 @@ export default function Home() {
   const playerContainerId = 'yt-player-container';
 
   const coinsPerMinute = settings.coins_per_minute || 1;
+
+  // Preload ad assets for instant display
+  useEffect(() => {
+    if (imageAds.length > 0) preloadImageAds(imageAds);
+  }, [imageAds]);
 
   // Initialize YouTube player when videoId changes
   useEffect(() => {
