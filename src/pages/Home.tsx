@@ -62,6 +62,11 @@ export default function Home() {
 
   const coinsPerMinute = settings.coins_per_minute || 1;
 
+  // Preload ad assets for instant display
+  useEffect(() => {
+    if (imageAds.length > 0) preloadImageAds(imageAds);
+  }, [imageAds]);
+
   // Initialize YouTube player when videoId changes
   useEffect(() => {
     if (!videoId) return;
