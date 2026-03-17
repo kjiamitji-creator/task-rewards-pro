@@ -2,28 +2,57 @@ import { useState } from 'react';
 import Header from '@/components/Header';
 import BottomNav from '@/components/BottomNav';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAds } from '@/hooks/useAds';
+import { ImageAdOverlay, preloadImageAds } from '@/components/ImageAdOverlay';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { User as UserIcon, Copy, Share2, Edit, Trophy, Link as LinkIcon } from 'lucide-react';
 import { toast } from 'sonner';
+import { useEffect } from 'react';
 
 export default function Profile() {
   const { profile, updateProfile, logout } = useAuth();
+  const { imageAds, trackAdEvent } = useAds();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(profile?.name || '');
   const [state, setState] = useState(profile?.state || '');
   const [country, setCountry] = useState(profile?.country || '');
+  const [showImageAd, setShowImageAd] = useState(false);
+  const [pendingSave, setPendingSave] = useState(false);
+
+  useEffect(() => {
+    if (imageAds.length > 0) preloadImageAds(imageAds);
+  }, [imageAds]);
 
   if (!profile) return null;
 
   const referralLink = `${window.location.origin}/register?ref=${profile.referral_code}`;
 
   const handleSave = async () => {
+    // Show image ad before saving if available
+    const profileImageAds = imageAds.filter(a => a.page === 'profile');
+    if (profileImageAds.length > 0 && !pendingSave) {
+      setPendingSave(true);
+      setShowImageAd(true);
+      return;
+    }
+    await executeSave();
+  };
+
+  const executeSave = async () => {
     await updateProfile({ name, state, country });
     setEditing(false);
+    setPendingSave(false);
     toast.success('Profile updated!');
+  };
+
+  const handleImageAdComplete = () => {
+    setShowImageAd(false);
+    if (pendingSave) {
+      executeSave();
+    }
   };
 
   const copyReferralCode = () => {
@@ -39,6 +68,9 @@ export default function Profile() {
   return (
     <div className="min-h-screen bg-background pb-20">
       <Header />
+      {showImageAd && (
+        <ImageAdOverlay ads={imageAds} page="profile" onComplete={handleImageAdComplete} trackEvent={trackAdEvent} />
+      )}
       <main className="max-w-lg mx-auto px-4 py-6 space-y-6">
         <Card>
           <CardContent className="p-6">

@@ -31,6 +31,7 @@ export function VideoAdOverlay({ ads, page, onComplete, trackEvent }: Props) {
   const [canClose, setCanClose] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isBuffering, setIsBuffering] = useState(true);
+  const [visitClicked, setVisitClicked] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const watchedRef = useRef(0);
@@ -43,6 +44,7 @@ export function VideoAdOverlay({ ads, page, onComplete, trackEvent }: Props) {
     setCanClose(false);
     setIsPlaying(false);
     setIsBuffering(true);
+    setVisitClicked(false);
     watchedRef.current = 0;
     trackEvent?.(currentAd.id, 'video', 'view');
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
@@ -73,6 +75,14 @@ export function VideoAdOverlay({ ads, page, onComplete, trackEvent }: Props) {
   };
 
   const handleClose = () => {
+    // First click: open redirect link
+    if (!visitClicked && currentAd.redirect_link) {
+      window.open(currentAd.redirect_link, '_blank');
+      trackEvent?.(currentAd.id, 'video', 'click', watchedRef.current);
+      setVisitClicked(true);
+      return;
+    }
+    // Second click: close ad
     trackEvent?.(currentAd.id, 'video', 'complete', watchedRef.current);
     if (currentAdIndex < pageAds.length - 1) {
       setCurrentAdIndex(prev => prev + 1);
@@ -87,12 +97,27 @@ export function VideoAdOverlay({ ads, page, onComplete, trackEvent }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center animate-in fade-in duration-200">
-      <div className="relative w-full h-full flex flex-col items-center justify-center">
+    <div className="fixed inset-0 z-[100] bg-black flex flex-col animate-in fade-in duration-200">
+      {/* Ad badge */}
+      <div className="absolute top-3 left-3 z-20">
+        <span className="bg-white/10 backdrop-blur-md text-white/80 text-[10px] font-medium px-2.5 py-1 rounded-full border border-white/10">
+          Ad {currentAdIndex + 1}/{pageAds.length}
+        </span>
+      </div>
+
+      {/* Buffering spinner */}
+      {isBuffering && (
+        <div className="absolute inset-0 flex items-center justify-center z-10">
+          <Loader2 size={40} className="text-white/70 animate-spin" />
+        </div>
+      )}
+
+      {/* Full screen video */}
+      <div className="flex-1 flex items-center justify-center overflow-hidden">
         <video
           ref={videoRef}
           src={currentAd.video_url}
-          className="max-w-full max-h-[75vh] w-auto h-auto object-contain rounded-lg shadow-2xl"
+          className="w-full h-full object-contain"
           autoPlay
           playsInline
           preload="auto"
@@ -103,55 +128,38 @@ export function VideoAdOverlay({ ads, page, onComplete, trackEvent }: Props) {
           onWaiting={() => setIsBuffering(true)}
           onPlaying={() => setIsBuffering(false)}
         />
-
-        {isBuffering && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Loader2 size={40} className="text-white/70 animate-spin" />
-          </div>
-        )}
-
-        {/* Top bar */}
-        <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10">
-          <span className="bg-white/10 backdrop-blur-md text-white/80 text-[10px] font-medium px-2.5 py-1 rounded-full border border-white/10">
-            Ad {currentAdIndex + 1}/{pageAds.length}
-          </span>
-          {countdown > 0 ? (
-            <span className="bg-white/10 backdrop-blur-md text-white text-xs font-semibold px-3 py-1.5 rounded-full border border-white/10 tabular-nums">
-              {countdown}s
-            </span>
-          ) : null}
-        </div>
-
-        {/* Bottom action bar */}
-        {!isBuffering && (
-          <div className="absolute bottom-6 left-4 right-4 flex items-center gap-3 z-10">
-            {currentAd.redirect_link && (
-              <button
-                onClick={handleVisit}
-                className="flex-1 bg-white text-black font-semibold text-sm py-3 px-5 rounded-xl flex items-center justify-center gap-2 shadow-xl hover:bg-white/90 active:scale-[0.98] transition-all"
-              >
-                <ExternalLink size={16} />
-                Visit Sponsor
-              </button>
-            )}
-            {canClose && (
-              <button
-                onClick={handleClose}
-                className={`${currentAd.redirect_link ? '' : 'flex-1'} bg-white/15 backdrop-blur-md text-white font-medium text-sm py-3 px-5 rounded-xl flex items-center justify-center gap-2 border border-white/20 hover:bg-white/25 active:scale-[0.98] transition-all`}
-              >
-                <X size={16} />
-                Close
-              </button>
-            )}
-          </div>
-        )}
-
-        {!canClose && !isBuffering && (
-          <p className="absolute bottom-2 left-0 right-0 text-center text-white/30 text-[10px]">
-            Ad closes in {countdown}s
-          </p>
-        )}
       </div>
+
+      {/* Bottom bar */}
+      {!isBuffering && (
+        <div className="bg-black/90 backdrop-blur-md border-t border-white/10 px-4 py-3 flex items-center gap-3 safe-area-bottom">
+          {/* Visit button */}
+          {currentAd.redirect_link && (
+            <button
+              onClick={handleVisit}
+              className="flex-1 bg-white text-black font-semibold text-sm py-3 px-4 rounded-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
+            >
+              <ExternalLink size={16} />
+              Visit Website
+            </button>
+          )}
+
+          {/* Timer or Close */}
+          {canClose ? (
+            <button
+              onClick={handleClose}
+              className={`${currentAd.redirect_link ? 'w-auto' : 'flex-1'} bg-white/15 text-white font-medium text-sm py-3 px-5 rounded-xl flex items-center justify-center gap-2 border border-white/20 hover:bg-white/25 active:scale-[0.98] transition-all`}
+            >
+              <X size={16} />
+              Close
+            </button>
+          ) : (
+            <div className="bg-white/10 text-white text-sm font-semibold px-5 py-3 rounded-xl tabular-nums border border-white/10 text-center min-w-[60px]">
+              {countdown}s
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

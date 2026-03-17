@@ -80,7 +80,7 @@ export default function Wallet() {
     const amount = parseInt(withdrawAmount);
     if (!amount || amount <= 0) { toast.error('Enter a valid amount'); return; }
     if (amount < settings.min_withdrawal) { toast.error(`Minimum withdrawal: ${settings.min_withdrawal} coins`); return; }
-    if (amount > profile.coins) { toast.error('Insufficient balance'); return; }
+    if (amount > profile.coins) { toast.error('Amount is not available in your balance'); return; }
     if (!hasUpiSaved) { toast.error('Save your UPI details first'); return; }
 
     // Show video ad before withdrawal if available
@@ -96,11 +96,14 @@ export default function Wallet() {
 
   const executeWithdraw = async (amount?: number) => {
     const amt = amount || parseInt(withdrawAmount);
+    // Instantly deduct coins
+    await deductCoins(amt);
+    // Insert transaction
     await supabase.from('transactions').insert({
       user_id: user.id, user_name: profile.name, amount: amt,
       upi_id: savedUpi, account_name: savedName, status: 'pending', type: 'withdrawal',
     });
-    await deductCoins(amt);
+    await refreshProfile();
     setOpen(false);
     setWithdrawAmount('');
     setPendingWithdraw(false);
@@ -124,14 +127,19 @@ export default function Wallet() {
         <VideoAdOverlay ads={videoAds} page="wallet" onComplete={handleVideoAdComplete} trackEvent={trackAdEvent} />
       )}
       <main className="max-w-lg mx-auto px-4 py-6 space-y-6">
+        {/* Balance Card */}
         <Card className="overflow-hidden">
           <div className="bg-gradient-to-br from-primary to-primary/70 p-6 text-primary-foreground text-center">
-            <Coins size={36} className="mx-auto mb-2 opacity-90" />
-            <p className="text-4xl font-bold">{profile.coins}</p>
-            <p className="text-sm opacity-80 mt-1">≈ {settings.currency} {currencyAmount}</p>
+            <Coins size={32} className="mx-auto mb-2 opacity-90" />
+            <p className="text-5xl font-extrabold tracking-tight">{profile.coins}</p>
+            <p className="text-xs font-medium opacity-70 mt-1">coins</p>
+            <div className="mt-3 bg-white/15 backdrop-blur-sm rounded-lg px-4 py-2 inline-block">
+              <p className="text-lg font-bold">{settings.currency} {currencyAmount}</p>
+            </div>
           </div>
         </Card>
 
+        {/* Payment Details */}
         <Card>
           <CardContent className="p-4 space-y-3">
             <div className="flex items-center justify-between">
@@ -161,6 +169,7 @@ export default function Wallet() {
           </CardContent>
         </Card>
 
+        {/* Withdraw */}
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button className="w-full gap-2" disabled={!hasUpiSaved}>
@@ -174,18 +183,27 @@ export default function Wallet() {
                 <p>UPI: {savedUpi}</p>
                 <p>Name: {savedName}</p>
               </div>
-              <Input type="number" placeholder="Enter amount" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} />
-              <p className="text-sm text-muted-foreground">
-                Minimum: {settings.min_withdrawal} coins · Balance: {profile.coins} coins
-              </p>
+              <Input type="number" placeholder="Enter coin amount" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} />
+              <div className="text-sm text-muted-foreground space-y-1">
+                <p>Minimum: {settings.min_withdrawal} coins · Balance: {profile.coins} coins</p>
+                {withdrawAmount && parseInt(withdrawAmount) > 0 && (
+                  <p className="font-medium text-foreground">
+                    ≈ {settings.currency} {(parseInt(withdrawAmount) * settings.coin_value).toFixed(2)}
+                  </p>
+                )}
+              </div>
               {withdrawAmount && parseInt(withdrawAmount) > 0 && parseInt(withdrawAmount) < settings.min_withdrawal && (
-                <p className="text-sm text-destructive font-medium">Your amount is not enough for withdrawal</p>
+                <p className="text-sm text-destructive font-medium">Amount is not enough for withdrawal</p>
+              )}
+              {withdrawAmount && parseInt(withdrawAmount) > profile.coins && (
+                <p className="text-sm text-destructive font-medium">Amount is not available in your balance</p>
               )}
               <Button onClick={handleWithdraw} className="w-full">Submit Request</Button>
             </div>
           </DialogContent>
         </Dialog>
 
+        {/* Transaction History */}
         <div>
           <h3 className="font-semibold mb-3 flex items-center gap-2"><History size={18} /> Transaction History</h3>
           {userTxns.length === 0 ? (
@@ -199,8 +217,9 @@ export default function Wallet() {
                 <Card key={t.id}>
                   <CardContent className="p-4 flex justify-between items-center">
                     <div>
-                      <p className="font-semibold">{t.amount} coins</p>
-                      <p className="text-xs text-muted-foreground">{new Date(t.created_at).toLocaleDateString()} · {t.upi_id}</p>
+                      <p className="font-bold text-lg">{t.amount} <span className="text-sm font-normal text-muted-foreground">coins</span></p>
+                      <p className="text-xs text-muted-foreground">≈ {settings.currency} {(t.amount * settings.coin_value).toFixed(2)}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{new Date(t.created_at).toLocaleDateString()} · {t.upi_id}</p>
                     </div>
                     <Badge variant={statusVariant(t.status)}>{t.status}</Badge>
                   </CardContent>
